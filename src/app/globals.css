@@ -1,0 +1,29 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f8fafc;
+  --foreground: #0f172a;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans, ui-sans-serif, system-ui, -apple-system, sans-serif);
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* vùng an toàn cho iPhone */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+input,
+select,
+textarea {
+  font-size: 16px; /* tránh iOS zoom khi focus */
+}
+
+#qr-reader video {
+  border-radius: 1rem;
+  object-fit: cover;
+}
