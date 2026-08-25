@@ -22,6 +22,19 @@ export const STAGE_LABELS: Record<OrderStatus, string> = {
   cancelled: "Đã huỷ",
 };
 
+// Nhãn hiển thị theo "ai cần làm tiếp" — status X nghĩa là khâu X đã quét xong,
+// nên đơn đang chờ khâu kế tiếp xử lý
+export const STATUS_DISPLAY_LABELS: Record<OrderStatus, string> = {
+  created: "Chờ Kỹ thuật",
+  ky_thuat: "Chờ In",
+  in: "Chờ Ép",
+  ep: "Chờ Gia công",
+  gia_cong: "Chờ Đóng gói",
+  dong_goi: "Chờ giao",
+  da_giao: "Đã giao",
+  cancelled: "Đã huỷ",
+};
+
 // minutes expected for each stage before it's considered overdue
 export const STAGE_SLA_MIN: Partial<Record<OrderStatus, number>> = {
   created: 30,

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { getSession } from "@/lib/auth";
 import { dbConnect } from "@/lib/db";
 import { Order } from "@/models/Order";
-import { STAGE_LABELS, STAGE_COLORS, type OrderStatus } from "@/lib/stages";
+import { STATUS_DISPLAY_LABELS, STAGE_COLORS, type OrderStatus } from "@/lib/stages";
 import { OrderCard, type OrderLite } from "@/components/OrderBits";
 import { fmtVnd } from "@/lib/format";
 import {
@@ -88,7 +88,7 @@ export default async function DashboardPage() {
                 href={`/orders?status=${st}`}
                 className={`flex items-center justify-between px-3 py-2.5 rounded-xl ${c.bg} active:scale-[0.98] transition`}
               >
-                <span className={`text-sm font-medium ${c.text}`}>{STAGE_LABELS[st]}</span>
+                <span className={`text-sm font-medium ${c.text}`}>{STATUS_DISPLAY_LABELS[st]}</span>
                 <span className={`text-sm font-bold ${c.text}`}>{counts[st] || 0}</span>
               </Link>
             );

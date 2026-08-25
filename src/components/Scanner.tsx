@@ -39,6 +39,26 @@ function decodeWithQuagga(src: string): Promise<string | null> {
   });
 }
 
+// Tiếng "bíp" báo quét thành công
+let audioCtx: AudioContext | null = null;
+function beep() {
+  try {
+    audioCtx ??= new AudioContext();
+    if (audioCtx.state === "suspended") audioCtx.resume();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = "square";
+    osc.frequency.value = 1800;
+    gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.15);
+    osc.connect(gain).connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.15);
+  } catch {
+    // trình duyệt chặn audio — thôi
+  }
+}
+
 // Samsung/Chrome hay mở camera với focus cố định — ép lấy nét liên tục
 async function enableContinuousFocus(stream: MediaStream) {
   const track = stream.getVideoTracks()[0];
@@ -196,6 +216,7 @@ export default function Scanner({
             setHud(`${video.videoWidth}×${video.videoHeight} · đã dò ${scanCountRef.current} khung hình`);
           if (!stopped && text) {
             setDetectError("");
+            beep();
             onScanRef.current(text);
           }
         } catch (err) {
@@ -228,6 +249,7 @@ export default function Scanner({
         }
       }
       if (text) {
+        beep();
         onScanRef.current(text);
       } else {
         setDetectError("Không tìm thấy barcode trong ảnh — chụp gần và rõ nét hơn thử");

@@ -4,12 +4,12 @@ import { useCallback, useEffect, useRef, useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Search, Loader2, Inbox, X } from "lucide-react";
 import { OrderCard, type OrderLite } from "@/components/OrderBits";
-import { STAGE_LABELS, type OrderStatus } from "@/lib/stages";
+import { STATUS_DISPLAY_LABELS, type OrderStatus } from "@/lib/stages";
 
 const FILTERS: { value: string; label: string }[] = [
   { value: "", label: "Tất cả" },
   ...(["created", "ky_thuat", "in", "ep", "gia_cong", "dong_goi", "da_giao", "cancelled"] as OrderStatus[]).map(
-    (s) => ({ value: s, label: STAGE_LABELS[s] })
+    (s) => ({ value: s, label: STATUS_DISPLAY_LABELS[s] })
   ),
 ];
 

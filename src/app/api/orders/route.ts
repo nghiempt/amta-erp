@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json();
   const { source, sourceOrderId, name, price, quantity, customerName, note, imageUrl } = body;
-  if (!source || !sourceOrderId || !name || price == null) {
+  if (!source || !sourceOrderId || !name) {
     return NextResponse.json({ error: "Thiếu thông tin bắt buộc" }, { status: 400 });
   }
   await dbConnect();
@@ -69,7 +69,7 @@ export async function POST(req: NextRequest) {
     source,
     sourceOrderId: String(sourceOrderId).trim(),
     name,
-    price: Number(price),
+    price: Number(price) || 0,
     quantity: Number(quantity) || 1,
     customerName,
     note,

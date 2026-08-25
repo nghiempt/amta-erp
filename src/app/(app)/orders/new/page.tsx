@@ -32,6 +32,7 @@ export default function NewOrderPage() {
   const [sourceOrderId, setSourceOrderId] = useState("");
   const [name, setName] = useState("");
   const [price, setPrice] = useState("");
+  const [customerName, setCustomerName] = useState("");
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -47,6 +48,7 @@ export default function NewOrderPage() {
     setSourceOrderId("");
     setName("");
     setPrice("");
+    setCustomerName("");
     setNote("");
     setError("");
     setScanning(source === "tiktok");
@@ -63,7 +65,8 @@ export default function NewOrderPage() {
         source,
         sourceOrderId,
         name,
-        price: Number(price),
+        price: Number(price) || 0,
+        customerName,
         note,
       }),
     });
@@ -241,8 +244,13 @@ export default function NewOrderPage() {
         </div>
 
         <div>
-          <label className="text-sm font-medium text-slate-700 mb-1.5 block">Giá (VND) *</label>
-          <input type="number" inputMode="numeric" min={0} value={price} onChange={(e) => setPrice(e.target.value)} required placeholder="150000" className={inputCls} />
+          <label className="text-sm font-medium text-slate-700 mb-1.5 block">Giá (VND)</label>
+          <input type="number" inputMode="numeric" min={0} value={price} onChange={(e) => setPrice(e.target.value)} placeholder="150000" className={inputCls} />
+        </div>
+
+        <div>
+          <label className="text-sm font-medium text-slate-700 mb-1.5 block">Tên khách hàng</label>
+          <input value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder="VD: Chị Lan" className={inputCls} />
         </div>
 
         <div>
