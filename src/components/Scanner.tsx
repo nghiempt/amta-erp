@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { BarcodeDetector, prepareZXingModule } from "barcode-detector/ponyfill";
-import { SwitchCamera } from "lucide-react";
+import { SwitchCamera, ImageUp } from "lucide-react";
 
 // Dùng bản wasm serve từ chính app (tránh phụ thuộc CDN ngoài)
 const enginePromise = prepareZXingModule({
@@ -15,6 +15,24 @@ const enginePromise = prepareZXingModule({
 
 // Barcode phiếu TikTok là Code 128; QR cho mã nội bộ AMTA
 const detector = new BarcodeDetector({ formats: ["qr_code", "code_128"] });
+
+// Samsung/Chrome hay mở camera với focus cố định — ép lấy nét liên tục
+async function enableContinuousFocus(stream: MediaStream) {
+  const track = stream.getVideoTracks()[0];
+  if (!track) return;
+  try {
+    const caps = track.getCapabilities?.() as
+      | (MediaTrackCapabilities & { focusMode?: string[] })
+      | undefined;
+    if (caps?.focusMode?.includes("continuous")) {
+      await track.applyConstraints({
+        advanced: [{ focusMode: "continuous" } as MediaTrackConstraintSet],
+      });
+    }
+  } catch {
+    // không hỗ trợ — thôi
+  }
+}
 
 export default function Scanner({
   onScan,
@@ -35,6 +53,8 @@ export default function Scanner({
   const [error, setError] = useState("");
   const [engineReady, setEngineReady] = useState(false);
   const [detectError, setDetectError] = useState("");
+  const [hud, setHud] = useState("");
+  const scanCountRef = useRef(0);
 
   // Nạp engine wasm — lỗi thì hiện rõ thay vì im lặng
   useEffect(() => {
@@ -65,6 +85,7 @@ export default function Scanner({
           return;
         }
         streamRef.current = stream;
+        await enableContinuousFocus(stream);
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
           await videoRef.current.play().catch(() => {});
@@ -108,6 +129,7 @@ export default function Scanner({
           return;
         }
         streamRef.current = stream;
+        await enableContinuousFocus(stream);
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
           await videoRef.current.play().catch(() => {});
@@ -133,12 +155,14 @@ export default function Scanner({
       if (video && video.readyState >= 2 && !pausedRef.current) {
         try {
           const results = await detector.detect(video);
+          scanCountRef.current++;
+          if (!stopped)
+            setHud(`${video.videoWidth}×${video.videoHeight} · đã dò ${scanCountRef.current} khung hình`);
           if (!stopped && results.length && results[0].rawValue) {
             setDetectError("");
             onScanRef.current(results[0].rawValue);
           }
         } catch (err) {
-          // hiện lỗi để chẩn đoán thay vì nuốt im lặng
           if (!stopped) setDetectError(`Lỗi giải mã: ${err}`);
           console.error("Scanner detect error:", err);
         }
@@ -152,6 +176,23 @@ export default function Scanner({
       clearTimeout(timer);
     };
   }, []);
+
+  // Quét từ ảnh chụp sẵn — fallback khi camera không lấy nét được
+  async function scanFromFile(file: File) {
+    setDetectError("");
+    try {
+      const bitmap = await createImageBitmap(file);
+      const results = await detector.detect(bitmap);
+      bitmap.close();
+      if (results.length && results[0].rawValue) {
+        onScanRef.current(results[0].rawValue);
+      } else {
+        setDetectError("Không tìm thấy barcode trong ảnh — chụp gần và rõ nét hơn thử");
+      }
+    } catch (err) {
+      setDetectError(`Lỗi đọc ảnh: ${err}`);
+    }
+  }
 
   return (
     <div className="relative" id="qr-reader">
@@ -171,11 +212,27 @@ export default function Scanner({
               Đang tải bộ giải mã…
             </p>
           )}
+          {engineReady && !detectError && hud && (
+            <p className="absolute top-3 left-3 right-3 text-center text-[11px] text-white/90 bg-black/50 rounded-lg px-3 py-1">
+              {hud}
+            </p>
+          )}
           {detectError && (
             <p className="absolute top-3 left-3 right-3 text-center text-xs text-white bg-red-600/85 rounded-lg px-3 py-1.5 break-all">
               {detectError}
             </p>
           )}
+          {/* Quét từ ảnh — dùng camera máy chụp (lấy nét tốt) rồi decode */}
+          <label className="absolute bottom-3 left-3 z-10 flex items-center gap-1.5 px-3 py-2 rounded-xl bg-black/60 text-white text-xs font-medium backdrop-blur active:scale-95 transition cursor-pointer">
+            <ImageUp className="w-4 h-4" /> Quét từ ảnh
+            <input
+              type="file"
+              accept="image/*"
+              capture="environment"
+              className="hidden"
+              onChange={(e) => e.target.files?.[0] && scanFromFile(e.target.files[0])}
+            />
+          </label>
         </>
       )}
       {cameras.length > 1 && !error && (
