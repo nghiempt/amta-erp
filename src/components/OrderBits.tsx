@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import QRCode from "qrcode";
+import JsBarcode from "jsbarcode";
 import { STATUS_DISPLAY_LABELS, STAGE_COLORS, type OrderStatus } from "@/lib/stages";
 import { Clock, AlertTriangle, Printer, X } from "lucide-react";
 
@@ -18,7 +19,20 @@ export interface OrderLite {
   status: OrderStatus;
   statusChangedAt: string;
   createdAt: string;
+  history?: { status: OrderStatus; byName: string }[];
 }
+
+// Ai làm khâu nào — entry history status X = người đã quét/thực hiện khâu X
+const HISTORY_ROLE_LABELS: Record<OrderStatus, string> = {
+  created: "CSKH",
+  ky_thuat: "Kỹ thuật",
+  in: "In",
+  ep: "Ép",
+  gia_cong: "Gia công",
+  dong_goi: "Đóng gói",
+  da_giao: "Giao",
+  cancelled: "Huỷ",
+};
 
 export { fmtVnd, timeAgo, isOverdue } from "@/lib/format";
 import { fmtVnd, timeAgo, isOverdue } from "@/lib/format";
@@ -47,9 +61,23 @@ export function SourceBadge({ source }: { source: string }) {
   );
 }
 
-// Popup in lại phiếu đơn Shopee (backup khi tạo đơn trên điện thoại, in trên máy tính)
-function ReprintModal({ order, qr, onClose }: { order: OrderLite; qr: string; onClose: () => void }) {
+const SOURCE_NAMES: Record<string, string> = { tiktok: "TikTok", shopee: "Shopee", other: "Khác" };
+
+// Popup in lại phiếu đơn (backup khi tạo đơn trên điện thoại, in trên máy tính)
+// TikTok: kèm barcode gốc đã quét; luôn kèm QR mã nội bộ
+function ReprintModal({
+  order,
+  qr,
+  barcode,
+  onClose,
+}: {
+  order: OrderLite;
+  qr: string;
+  barcode: string | null;
+  onClose: () => void;
+}) {
   const [error, setError] = useState("");
+  const sourceName = SOURCE_NAMES[order.source] || order.source;
 
   function printTicket() {
     const w = window.open("", "_blank");
@@ -63,12 +91,14 @@ function ReprintModal({ order, qr, onClose }: { order: OrderLite; qr: string; on
         .code{font-family:monospace;font-size:20px;font-weight:bold;margin:8px 0 2px}
         .src{font-size:12px;color:#555;font-family:monospace}
         img{width:220px;height:220px}
+        img.bar{width:260px;height:80px;object-fit:contain;margin-top:6px}
         .name{font-size:15px;font-weight:600;margin:8px 0 2px}
         .price{font-size:14px}
         .note{margin-top:10px;padding:8px;border:1.5px dashed #111;border-radius:8px;font-size:14px;font-weight:600}
       </style></head><body>
       <div class="code">${order.code}</div>
-      <div class="src">Shopee: ${order.sourceOrderId}</div>
+      <div class="src">${sourceName}: ${order.sourceOrderId}</div>
+      ${barcode ? `<img class="bar" src="${barcode}" alt="barcode"/>` : ""}
       <img src="${qr}" alt="QR"/>
       <div class="name">${order.name}</div>
       <div class="price">${order.price.toLocaleString("vi-VN")} đ</div>
@@ -89,7 +119,11 @@ function ReprintModal({ order, qr, onClose }: { order: OrderLite; qr: string; on
         </button>
         <div className="text-center">
           <p className="font-mono font-bold text-xl text-slate-900">{order.code}</p>
-          <p className="font-mono text-xs text-slate-500 mt-0.5">Shopee: {order.sourceOrderId}</p>
+          <p className="font-mono text-xs text-slate-500 mt-0.5">{sourceName}: {order.sourceOrderId}</p>
+          {barcode && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={barcode} alt="barcode" className="w-56 h-16 object-contain mx-auto mt-3" />
+          )}
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={qr} alt="QR" className="w-44 h-44 mx-auto my-3" />
           <p className="font-semibold text-slate-900">{order.name}</p>
@@ -114,11 +148,28 @@ function ReprintModal({ order, qr, onClose }: { order: OrderLite; qr: string; on
 
 export function OrderCard({ order }: { order: OrderLite }) {
   const overdue = isOverdue(order);
-  const [reprintQr, setReprintQr] = useState<string | null>(null);
+  const [reprint, setReprint] = useState<{ qr: string; barcode: string | null } | null>(null);
 
   async function openReprint() {
     const qr = await QRCode.toDataURL(order.code, { width: 480, margin: 1 });
-    setReprintQr(qr);
+    // TikTok: in lại luôn barcode gốc đã quét (Code128)
+    let barcode: string | null = null;
+    if (order.source === "tiktok") {
+      try {
+        const canvas = document.createElement("canvas");
+        JsBarcode(canvas, order.sourceOrderId, {
+          format: "CODE128",
+          displayValue: false,
+          width: 2,
+          height: 80,
+          margin: 8,
+        });
+        barcode = canvas.toDataURL("image/png");
+      } catch {
+        // mã chứa ký tự không encode được — bỏ qua barcode, vẫn in QR
+      }
+    }
+    setReprint({ qr, barcode });
   }
 
   return (
@@ -131,12 +182,30 @@ export function OrderCard({ order }: { order: OrderLite }) {
           </div>
           <p className="font-semibold text-slate-900 truncate">{order.name}</p>
           <p className="text-sm text-slate-500 truncate">
-            {order.customerName ? `${order.customerName} · ` : ""}
-            {fmtVnd(order.price)} × {order.quantity}
+            {[
+              order.customerName,
+              order.price > 0 ? fmtVnd(order.price) : "",
+              order.quantity > 1 ? `SL: ${order.quantity}` : "",
+            ]
+              .filter(Boolean)
+              .join(" · ")}
           </p>
         </div>
         <StatusBadge status={order.status} />
       </div>
+      {/* Ai đã tham gia quy trình — để khi lỗi biết ai thực hiện khâu đó */}
+      {order.history && order.history.length > 0 && (
+        <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-2.5 text-xs text-slate-500">
+          {order.history
+            .filter((h) => h.byName)
+            .map((h, i) => (
+              <span key={i}>
+                <span className="text-slate-400">{HISTORY_ROLE_LABELS[h.status] || h.status}:</span>{" "}
+                <span className="font-medium text-slate-600">{h.byName}</span>
+              </span>
+            ))}
+        </div>
+      )}
       {order.note && (
         <p className="mt-2.5 text-sm font-semibold text-amber-800 bg-amber-50 border border-dashed border-amber-400 rounded-xl px-3 py-2">
           {order.note}
@@ -151,7 +220,7 @@ export function OrderCard({ order }: { order: OrderLite }) {
             <AlertTriangle className="w-3.5 h-3.5" /> Quá 30 phút
           </span>
         )}
-        {order.source === "shopee" && (
+        {(order.source === "shopee" || order.source === "tiktok") && (
           <button
             onClick={openReprint}
             className="ml-auto inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-[#fbeee7] text-[#f1592a] font-semibold active:scale-95 transition"
@@ -160,7 +229,9 @@ export function OrderCard({ order }: { order: OrderLite }) {
           </button>
         )}
       </div>
-      {reprintQr && <ReprintModal order={order} qr={reprintQr} onClose={() => setReprintQr(null)} />}
+      {reprint && (
+        <ReprintModal order={order} qr={reprint.qr} barcode={reprint.barcode} onClose={() => setReprint(null)} />
+      )}
     </div>
   );
 }

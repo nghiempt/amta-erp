@@ -118,8 +118,13 @@ export default function ScanPage() {
                 </div>
                 <p className="font-bold text-slate-900">{order.name}</p>
                 <p className="text-sm text-slate-500">
-                  {order.customerName ? `${order.customerName} · ` : ""}
-                  {fmtVnd(order.price)} × {order.quantity}
+                  {[
+                    order.customerName,
+                    order.price > 0 ? fmtVnd(order.price) : "",
+                    order.quantity > 1 ? `SL: ${order.quantity}` : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
                 </p>
               </div>
               <StatusBadge status={order.status} />
