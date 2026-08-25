@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { BarcodeDetector, prepareZXingModule } from "barcode-detector/ponyfill";
+import { prepareZXingModule, readBarcodes } from "zxing-wasm/reader";
 import { SwitchCamera, ImageUp } from "lucide-react";
 
 // Dùng bản wasm serve từ chính app (tránh phụ thuộc CDN ngoài)
@@ -13,8 +13,13 @@ const enginePromise = prepareZXingModule({
   fireImmediately: true,
 });
 
-// Barcode phiếu TikTok là Code 128; QR cho mã nội bộ AMTA
-const detector = new BarcodeDetector({ formats: ["qr_code", "code_128"] });
+// Mọi format (Code128/ITF/Code39/QR...), dò kỹ, thử xoay/đảo màu
+const READ_OPTS = {
+  tryHarder: true,
+  tryRotate: true,
+  tryInvert: true,
+  tryDownscale: true,
+} as const;
 
 // Samsung/Chrome hay mở camera với focus cố định — ép lấy nét liên tục
 async function enableContinuousFocus(stream: MediaStream) {
@@ -47,6 +52,7 @@ export default function Scanner({
   pausedRef.current = paused;
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const [cameras, setCameras] = useState<{ id: string; label: string }[]>([]);
   const [camIndex, setCamIndex] = useState(-1);
@@ -144,7 +150,7 @@ export default function Scanner({
     };
   }, [camIndex, cameras]);
 
-  // Vòng lặp dò mã
+  // Vòng lặp dò mã: chụp khung hình vào canvas → readBarcodes
   useEffect(() => {
     let stopped = false;
     let timer: ReturnType<typeof setTimeout>;
@@ -152,15 +158,22 @@ export default function Scanner({
     async function tick() {
       if (stopped) return;
       const video = videoRef.current;
-      if (video && video.readyState >= 2 && !pausedRef.current) {
+      if (video && video.readyState >= 2 && video.videoWidth > 0 && !pausedRef.current) {
         try {
-          const results = await detector.detect(video);
+          if (!canvasRef.current) canvasRef.current = document.createElement("canvas");
+          const canvas = canvasRef.current;
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          const ctx = canvas.getContext("2d", { willReadFrequently: true })!;
+          ctx.drawImage(video, 0, 0);
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const results = await readBarcodes(imageData, READ_OPTS);
           scanCountRef.current++;
           if (!stopped)
             setHud(`${video.videoWidth}×${video.videoHeight} · đã dò ${scanCountRef.current} khung hình`);
-          if (!stopped && results.length && results[0].rawValue) {
+          if (!stopped && results.length && results[0].text) {
             setDetectError("");
-            onScanRef.current(results[0].rawValue);
+            onScanRef.current(results[0].text);
           }
         } catch (err) {
           if (!stopped) setDetectError(`Lỗi giải mã: ${err}`);
@@ -181,11 +194,9 @@ export default function Scanner({
   async function scanFromFile(file: File) {
     setDetectError("");
     try {
-      const bitmap = await createImageBitmap(file);
-      const results = await detector.detect(bitmap);
-      bitmap.close();
-      if (results.length && results[0].rawValue) {
-        onScanRef.current(results[0].rawValue);
+      const results = await readBarcodes(file, READ_OPTS);
+      if (results.length && results[0].text) {
+        onScanRef.current(results[0].text);
       } else {
         setDetectError("Không tìm thấy barcode trong ảnh — chụp gần và rõ nét hơn thử");
       }
