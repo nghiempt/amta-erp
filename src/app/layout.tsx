@@ -9,15 +9,19 @@ const font = Be_Vietnam_Pro({
 });
 
 export const metadata: Metadata = {
-  title: "AMTA ERP — Quản lý đơn hàng",
-  description: "Quản lý quy trình sản xuất & hoàn tất đơn hàng",
+  title: "Ảnh Màu Tuấn Anh — Quản lý đơn hàng và quy trình",
+  description: "Hệ thống quản lý đơn hàng và quy trình của Ảnh Màu Tuấn Anh",
+  icons: {
+    icon: "/amta-logo-tr.png",
+    apple: "/amta-logo-tr.png",
+  },
 };
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
-  themeColor: "#0f172a",
+  themeColor: "#f1592a",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

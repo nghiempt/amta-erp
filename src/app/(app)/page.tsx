@@ -19,6 +19,7 @@ export const dynamic = "force-dynamic";
 export default async function DashboardPage() {
   const user = await getSession();
   if (!user) redirect("/login");
+  if (user.role === "cskh") redirect("/orders/new");
   if (user.role !== "admin") redirect("/orders");
 
   await dbConnect();

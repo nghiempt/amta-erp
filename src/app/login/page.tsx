@@ -2,7 +2,7 @@
 
 import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Package, Lock, User, Loader2, Eye, EyeOff } from "lucide-react";
+import { Loader2, Eye, EyeOff } from "lucide-react";
 
 function LoginForm() {
   const router = useRouter();
@@ -33,70 +33,75 @@ function LoginForm() {
   }
 
   return (
-    <div className="min-h-dvh flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 p-4">
-      <div className="w-full max-w-sm">
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-indigo-500 shadow-lg shadow-indigo-500/30 mb-4">
-            <Package className="w-8 h-8 text-white" />
-          </div>
-          <h1 className="text-2xl font-bold text-white">AMTA ERP</h1>
-          <p className="text-slate-400 text-sm mt-1">Quản lý quy trình đơn hàng</p>
+    <div className="relative min-h-dvh flex items-center justify-center bg-linear-to-br from-white via-[#fdf6f1] to-[#faeee5] p-6 overflow-hidden">
+      {/* mảng tròn trang trí mờ */}
+      <div className="absolute -top-24 -right-24 w-72 h-72 rounded-full bg-[#f6d9c3]/40 pointer-events-none" />
+      <div className="absolute -bottom-28 -left-20 w-64 h-64 rounded-full bg-[#f6d9c3]/30 pointer-events-none" />
+
+      <div className="relative w-full max-w-sm">
+        <div className="text-center mb-10">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/amta-logo-tr.png"
+            alt="Ảnh Màu Tuấn Anh"
+            width={56}
+            height={56}
+            className="mx-auto mb-5 w-14 h-14 object-contain"
+          />
+          <h1 className="text-2xl font-extrabold text-[#f1592a] tracking-tight">
+            Đăng nhập
+          </h1>
+          {/* <p className="text-slate-900 font-bold text-lg mt-4 leading-snug">
+            Ảnh Màu Tuấn Anh
+          </p> */}
+          <p className="text-slate-500 text-sm mt-1">Quản lý đơn hàng và quy trình</p>
         </div>
 
-        <form onSubmit={submit} className="bg-white rounded-2xl shadow-xl p-6 space-y-4">
-          <div>
-            <label className="text-sm font-medium text-slate-700 mb-1.5 block">Tài khoản</label>
-            <div className="relative">
-              <User className="w-5 h-5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                autoCapitalize="none"
-                autoComplete="username"
-                required
-                placeholder="admin"
-                className="w-full pl-10 pr-3 py-3 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition"
-              />
-            </div>
-          </div>
-          <div>
-            <label className="text-sm font-medium text-slate-700 mb-1.5 block">Mật khẩu</label>
-            <div className="relative">
-              <Lock className="w-5 h-5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type={showPw ? "text" : "password"}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                autoComplete="current-password"
-                required
-                placeholder="••••••••"
-                className="w-full pl-10 pr-11 py-3 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPw(!showPw)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"
-              >
-                {showPw ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-              </button>
-            </div>
+        <form onSubmit={submit} className="space-y-5">
+          <input
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            autoCapitalize="none"
+            autoComplete="username"
+            required
+            placeholder="Tài khoản"
+            className="w-full px-5 py-4 rounded-xl bg-[#fbeee7] text-slate-800 placeholder:text-slate-400 border-2 border-transparent focus:border-[#f1592a] focus:bg-white outline-none transition"
+          />
+          <div className="relative">
+            <input
+              type={showPw ? "text" : "password"}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="current-password"
+              required
+              placeholder="Mật khẩu"
+              className="w-full px-5 py-4 pr-13 rounded-xl bg-[#fbeee7] text-slate-800 placeholder:text-slate-400 border-2 border-transparent focus:border-[#f1592a] focus:bg-white outline-none transition"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPw(!showPw)}
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-[#f1592a] transition"
+              aria-label={showPw ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+            >
+              {showPw ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+            </button>
           </div>
 
           {error && (
-            <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>
+            <p className="text-sm text-red-600 bg-red-50 rounded-lg px-4 py-2.5">{error}</p>
           )}
 
           <button
             disabled={loading}
-            className="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] text-white font-semibold transition flex items-center justify-center gap-2 disabled:opacity-60"
+            className="w-full py-4 rounded-xl bg-[#f1592a] hover:bg-[#e14e20] active:scale-[0.99] text-white font-bold text-lg transition flex items-center justify-center gap-2 disabled:opacity-60 shadow-lg shadow-[#f1592a]/35"
           >
             {loading && <Loader2 className="w-5 h-5 animate-spin" />}
             Đăng nhập
           </button>
         </form>
 
-        <p className="text-center text-slate-500 text-xs mt-6">
-          Demo: admin / admin123 · kythuat / 123456
+        <p className="text-center text-slate-400 text-xs mt-10">
+          © {new Date().getFullYear()} Ảnh Màu Tuấn Anh
         </p>
       </div>
     </div>

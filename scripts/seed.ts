@@ -44,6 +44,7 @@ async function main() {
   const hash = (pw: string) => bcrypt.hashSync(pw, 10);
   const users = await User.insertMany([
     { username: "admin", passwordHash: hash("admin123"), name: "Quản trị viên", role: "admin" },
+    { username: "cskh", passwordHash: hash("123456"), name: "NV CSKH", role: "cskh" },
     { username: "kythuat", passwordHash: hash("123456"), name: "NV Kỹ thuật", role: "staff" },
     { username: "in", passwordHash: hash("123456"), name: "NV In", role: "staff" },
     { username: "ep", passwordHash: hash("123456"), name: "NV Ép", role: "staff" },
@@ -53,7 +54,7 @@ async function main() {
   ]);
   const admin = users[0];
   const staffByStage: Record<string, (typeof users)[number]> = {
-    ky_thuat: users[1], in: users[2], ep: users[3], gia_cong: users[4], dong_goi: users[5], da_giao: users[6],
+    ky_thuat: users[2], in: users[3], ep: users[4], gia_cong: users[5], dong_goi: users[6], da_giao: users[7],
   };
   console.log(`Seeded ${users.length} users`);
 

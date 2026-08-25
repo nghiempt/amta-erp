@@ -36,8 +36,8 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const user = await getSession();
   if (!user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
-  if (user.role !== "admin")
-    return NextResponse.json({ error: "Chỉ admin được tạo đơn" }, { status: 403 });
+  if (user.role !== "admin" && user.role !== "cskh")
+    return NextResponse.json({ error: "Chỉ admin hoặc CSKH được tạo đơn" }, { status: 403 });
 
   const body = await req.json();
   const { source, sourceOrderId, name, price, quantity, customerName, note, imageUrl } = body;

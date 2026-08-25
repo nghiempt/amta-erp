@@ -69,7 +69,7 @@ function OrdersList() {
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Tìm theo mã, tên đơn, khách hàng..."
-          className="w-full pl-11 pr-10 py-3 rounded-2xl border border-slate-200 bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition"
+          className="w-full pl-11 pr-10 py-3 rounded-2xl bg-[#fbeee7] border-2 border-transparent focus:border-[#f1592a] focus:bg-white outline-none transition placeholder:text-slate-400"
         />
         {q && (
           <button onClick={() => setQ("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 p-1">
@@ -86,8 +86,8 @@ function OrdersList() {
             onClick={() => pickStatus(f.value)}
             className={`shrink-0 px-3.5 py-1.5 rounded-full text-sm font-medium transition ${
               status === f.value
-                ? "bg-slate-900 text-white"
-                : "bg-white border border-slate-200 text-slate-600 active:bg-slate-100"
+                ? "bg-[#f1592a] text-white shadow-sm shadow-[#f1592a]/25"
+                : "bg-white border border-[#f6d9c3] text-slate-600 active:bg-[#fbeee7]"
             }`}
           >
             {f.label}
@@ -98,7 +98,7 @@ function OrdersList() {
       {/* List */}
       {loading && items.length === 0 ? (
         <div className="flex justify-center py-16">
-          <Loader2 className="w-7 h-7 animate-spin text-indigo-500" />
+          <Loader2 className="w-7 h-7 animate-spin text-[#f1592a]" />
         </div>
       ) : items.length === 0 ? (
         <div className="text-center py-16 text-slate-400">
@@ -121,7 +121,7 @@ function OrdersList() {
             load(q, status, next, true);
           }}
           disabled={loading}
-          className="w-full py-3 rounded-2xl bg-white border border-slate-200 text-sm font-medium text-slate-600 active:bg-slate-50 flex items-center justify-center gap-2"
+          className="w-full py-3 rounded-2xl bg-white border border-[#f6d9c3] text-sm font-medium text-slate-600 active:bg-[#fbeee7] flex items-center justify-center gap-2"
         >
           {loading && <Loader2 className="w-4 h-4 animate-spin" />} Tải thêm
         </button>

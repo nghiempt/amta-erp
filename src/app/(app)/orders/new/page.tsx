@@ -3,18 +3,28 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
+import QRCode from "qrcode";
 import {
   ScanBarcode,
   Keyboard,
   Loader2,
   CheckCircle2,
-  ImagePlus,
-  X,
+  Printer,
+  PlusCircle,
 } from "lucide-react";
 
 const Scanner = dynamic(() => import("@/components/Scanner"), { ssr: false });
 
 type Source = "tiktok" | "shopee";
+
+interface CreatedOrder {
+  code: string;
+  sourceOrderId: string;
+  name: string;
+  price: number;
+  note?: string;
+  qr: string;
+}
 
 export default function NewOrderPage() {
   const router = useRouter();
@@ -23,28 +33,24 @@ export default function NewOrderPage() {
   const [sourceOrderId, setSourceOrderId] = useState("");
   const [name, setName] = useState("");
   const [price, setPrice] = useState("");
-  const [quantity, setQuantity] = useState("1");
-  const [customerName, setCustomerName] = useState("");
   const [note, setNote] = useState("");
-  const [imageUrl, setImageUrl] = useState("");
-  const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [created, setCreated] = useState<CreatedOrder | null>(null);
 
   function pickSource(s: Source) {
     setSource(s);
     setScanning(s === "tiktok");
   }
 
-  async function uploadImage(file: File) {
-    setUploading(true);
-    const fd = new FormData();
-    fd.append("file", file);
-    const res = await fetch("/api/upload", { method: "POST", body: fd });
-    const data = await res.json();
-    if (res.ok) setImageUrl(data.url);
-    else setError(data.error || "Upload thất bại");
-    setUploading(false);
+  function resetForm() {
+    setCreated(null);
+    setSourceOrderId("");
+    setName("");
+    setPrice("");
+    setNote("");
+    setError("");
+    setScanning(source === "tiktok");
   }
 
   async function submit(e: React.FormEvent) {
@@ -59,10 +65,7 @@ export default function NewOrderPage() {
         sourceOrderId,
         name,
         price: Number(price),
-        quantity: Number(quantity) || 1,
-        customerName,
         note,
-        imageUrl,
       }),
     });
     const data = await res.json();
@@ -71,17 +74,105 @@ export default function NewOrderPage() {
       setSaving(false);
       return;
     }
-    router.replace(`/orders/${data.order._id}?created=1`);
+    if (source === "shopee") {
+      // Shopee: sinh QR nội bộ + preview phiếu in
+      const qr = await QRCode.toDataURL(data.order.code, { width: 480, margin: 1 });
+      setCreated({
+        code: data.order.code,
+        sourceOrderId: data.order.sourceOrderId,
+        name: data.order.name,
+        price: data.order.price,
+        note: data.order.note,
+        qr,
+      });
+      setSaving(false);
+      return;
+    }
+    // TikTok: bên bán tự in đơn, không cần QR — về danh sách luôn
+    router.replace("/orders");
+  }
+
+  function printTicket() {
+    if (!created) return;
+    const w = window.open("", "_blank");
+    if (!w) {
+      setError("Trình duyệt chặn cửa sổ in — hãy cho phép popup rồi thử lại");
+      return;
+    }
+    w.document.write(`<html><head><title>${created.code}</title>
+      <style>
+        body{font-family:-apple-system,sans-serif;text-align:center;padding:16px;color:#111}
+        .code{font-family:monospace;font-size:20px;font-weight:bold;margin:8px 0 2px}
+        .src{font-size:12px;color:#555;font-family:monospace}
+        img{width:220px;height:220px}
+        .name{font-size:15px;font-weight:600;margin:8px 0 2px}
+        .price{font-size:14px}
+        .note{margin-top:10px;padding:8px;border:1.5px dashed #111;border-radius:8px;font-size:14px;font-weight:600}
+      </style></head><body>
+      <div class="code">${created.code}</div>
+      <div class="src">Shopee: ${created.sourceOrderId}</div>
+      <img src="${created.qr}" alt="QR"/>
+      <div class="name">${created.name}</div>
+      <div class="price">${created.price.toLocaleString("vi-VN")} đ</div>
+      ${created.note ? `<div class="note">📝 ${created.note}</div>` : ""}
+      <script>window.onload=()=>window.print()</script>
+      </body></html>`);
+    w.document.close();
   }
 
   const inputCls =
-    "w-full px-3.5 py-3 rounded-xl border border-slate-200 bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition";
+    "w-full px-4 py-3 rounded-xl bg-[#fbeee7] text-slate-800 placeholder:text-slate-400 border-2 border-transparent focus:border-[#f1592a] focus:bg-white outline-none transition";
+
+  // ==== Màn hình sau khi tạo đơn Shopee: preview phiếu + in ====
+  if (created) {
+    return (
+      <div className="p-4 md:p-8 max-w-md mx-auto space-y-4">
+        <p className="text-sm text-emerald-700 bg-emerald-50 rounded-xl px-4 py-3 flex items-center gap-2">
+          <CheckCircle2 className="w-4 h-4 shrink-0" /> Đã tạo đơn thành công
+        </p>
+
+        {/* Preview phiếu */}
+        <div className="bg-white rounded-2xl border border-[#f6d9c3] shadow-sm p-6 text-center">
+          <p className="font-mono font-bold text-xl text-slate-900">{created.code}</p>
+          <p className="font-mono text-xs text-slate-500 mt-0.5">Shopee: {created.sourceOrderId}</p>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={created.qr} alt="QR" className="w-48 h-48 mx-auto my-3" />
+          <p className="font-semibold text-slate-900">{created.name}</p>
+          <p className="text-sm text-slate-600 mt-0.5">{created.price.toLocaleString("vi-VN")} đ</p>
+          {created.note && (
+            <p className="mt-3 text-sm font-semibold text-amber-800 bg-amber-50 border-2 border-dashed border-amber-400 rounded-xl px-3 py-2">
+              {created.note}
+            </p>
+          )}
+        </div>
+
+        {error && <p className="text-sm text-red-600 bg-red-50 rounded-lg px-4 py-2.5">{error}</p>}
+
+        <button
+          onClick={printTicket}
+          className="w-full py-3.5 rounded-xl bg-[#f1592a] hover:bg-[#e14e20] active:scale-[0.99] text-white font-bold transition flex items-center justify-center gap-2 shadow-lg shadow-[#f1592a]/30"
+        >
+          <Printer className="w-5 h-5" /> Kiểm tra máy in & In phiếu
+        </button>
+        <button
+          onClick={resetForm}
+          className="w-full py-3 rounded-xl bg-white border border-[#f6d9c3] text-slate-700 font-medium flex items-center justify-center gap-2 hover:border-[#f1592a]/40 transition"
+        >
+          <PlusCircle className="w-4.5 h-4.5" /> Tạo đơn mới
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 md:p-8 max-w-2xl mx-auto space-y-5">
       <div>
-        <h1 className="text-xl md:text-2xl font-bold text-slate-900">Tạo đơn hàng</h1>
-        <p className="text-sm text-slate-500">Quét barcode TikTok hoặc nhập mã đơn Shopee</p>
+        <h1 className="text-xl md:text-2xl font-extrabold text-slate-900 tracking-tight">
+          Tạo đơn hàng
+        </h1>
+        <p className="text-sm text-slate-500 mt-0.5">
+          Quét barcode TikTok hoặc nhập mã đơn Shopee
+        </p>
       </div>
 
       {/* Chọn nguồn */}
@@ -91,8 +182,8 @@ export default function NewOrderPage() {
           onClick={() => pickSource("tiktok")}
           className={`flex flex-col items-center gap-2 p-4 rounded-2xl border-2 transition ${
             source === "tiktok"
-              ? "border-slate-900 bg-slate-900 text-white"
-              : "border-slate-200 bg-white text-slate-600"
+              ? "border-[#f1592a] bg-[#f1592a] text-white shadow-lg shadow-[#f1592a]/25"
+              : "border-[#f6d9c3] bg-white text-slate-600 hover:border-[#f1592a]/40"
           }`}
         >
           <ScanBarcode className="w-7 h-7" />
@@ -103,8 +194,8 @@ export default function NewOrderPage() {
           onClick={() => pickSource("shopee")}
           className={`flex flex-col items-center gap-2 p-4 rounded-2xl border-2 transition ${
             source === "shopee"
-              ? "border-orange-500 bg-orange-500 text-white"
-              : "border-slate-200 bg-white text-slate-600"
+              ? "border-[#f1592a] bg-[#f1592a] text-white shadow-lg shadow-[#f1592a]/25"
+              : "border-[#f6d9c3] bg-white text-slate-600 hover:border-[#f1592a]/40"
           }`}
         >
           <Keyboard className="w-7 h-7" />
@@ -125,37 +216,28 @@ export default function NewOrderPage() {
           <button
             type="button"
             onClick={() => setScanning(false)}
-            className="w-full py-2.5 rounded-xl bg-white border border-slate-200 text-sm text-slate-600"
+            className="w-full py-2.5 rounded-xl bg-white border border-[#f6d9c3] text-sm text-slate-600 hover:border-[#f1592a]/40 transition"
           >
             Nhập tay thay vì quét
           </button>
         </div>
       )}
 
-      <form onSubmit={submit} className="bg-white rounded-2xl border border-slate-200 p-4 md:p-6 space-y-4">
+      <form
+        onSubmit={submit}
+        className="bg-white/70 backdrop-blur-sm rounded-2xl border border-[#f6d9c3]/70 shadow-sm p-4 md:p-6 space-y-4"
+      >
         <div>
           <label className="text-sm font-medium text-slate-700 mb-1.5 block">
             Mã đơn {source === "tiktok" ? "TikTok" : "Shopee"} *
           </label>
-          <div className="flex gap-2">
-            <input
-              value={sourceOrderId}
-              onChange={(e) => setSourceOrderId(e.target.value)}
-              required
-              placeholder={source === "tiktok" ? "Quét barcode hoặc nhập tay" : "VD: 2508ABCDEF1234"}
-              className={`${inputCls} font-mono`}
-            />
-            {source === "tiktok" && !scanning && (
-              <button
-                type="button"
-                onClick={() => setScanning(true)}
-                className="shrink-0 px-3.5 rounded-xl bg-slate-900 text-white"
-                aria-label="Quét barcode"
-              >
-                <ScanBarcode className="w-5 h-5" />
-              </button>
-            )}
-          </div>
+          <input
+            value={sourceOrderId}
+            onChange={(e) => setSourceOrderId(e.target.value)}
+            required
+            placeholder={source === "tiktok" ? "Quét barcode hoặc nhập tay" : "VD: 2508ABCDEF1234"}
+            className={`${inputCls} font-mono`}
+          />
           {sourceOrderId && (
             <p className="text-xs text-emerald-600 mt-1.5 inline-flex items-center gap-1">
               <CheckCircle2 className="w-3.5 h-3.5" /> Đã có mã đơn
@@ -168,20 +250,9 @@ export default function NewOrderPage() {
           <input value={name} onChange={(e) => setName(e.target.value)} required placeholder="VD: Áo thun in hình mèo - size L" className={inputCls} />
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="text-sm font-medium text-slate-700 mb-1.5 block">Giá (VND) *</label>
-            <input type="number" inputMode="numeric" min={0} value={price} onChange={(e) => setPrice(e.target.value)} required placeholder="150000" className={inputCls} />
-          </div>
-          <div>
-            <label className="text-sm font-medium text-slate-700 mb-1.5 block">Số lượng</label>
-            <input type="number" inputMode="numeric" min={1} value={quantity} onChange={(e) => setQuantity(e.target.value)} className={inputCls} />
-          </div>
-        </div>
-
         <div>
-          <label className="text-sm font-medium text-slate-700 mb-1.5 block">Tên khách hàng</label>
-          <input value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder="Nguyễn Văn A" className={inputCls} />
+          <label className="text-sm font-medium text-slate-700 mb-1.5 block">Giá (VND) *</label>
+          <input type="number" inputMode="numeric" min={0} value={price} onChange={(e) => setPrice(e.target.value)} required placeholder="150000" className={inputCls} />
         </div>
 
         <div>
@@ -189,34 +260,14 @@ export default function NewOrderPage() {
           <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} placeholder="Yêu cầu đặc biệt..." className={inputCls} />
         </div>
 
-        {/* Ảnh sản phẩm */}
-        <div>
-          <label className="text-sm font-medium text-slate-700 mb-1.5 block">Ảnh sản phẩm</label>
-          {imageUrl ? (
-            <div className="relative inline-block">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={imageUrl} alt="" className="w-24 h-24 object-cover rounded-xl border border-slate-200" />
-              <button type="button" onClick={() => setImageUrl("")} className="absolute -top-2 -right-2 bg-slate-900 text-white rounded-full p-1">
-                <X className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          ) : (
-            <label className="flex items-center gap-2 px-3.5 py-3 rounded-xl border border-dashed border-slate-300 text-sm text-slate-500 cursor-pointer active:bg-slate-50">
-              {uploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <ImagePlus className="w-5 h-5" />}
-              {uploading ? "Đang tải..." : "Chụp / chọn ảnh"}
-              <input type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files?.[0] && uploadImage(e.target.files[0])} />
-            </label>
-          )}
-        </div>
-
-        {error && <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>}
+        {error && <p className="text-sm text-red-600 bg-red-50 rounded-lg px-4 py-2.5">{error}</p>}
 
         <button
           disabled={saving}
-          className="w-full py-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] text-white font-semibold transition flex items-center justify-center gap-2 disabled:opacity-60"
+          className="w-full py-3.5 rounded-xl bg-[#f1592a] hover:bg-[#e14e20] active:scale-[0.99] text-white font-bold transition flex items-center justify-center gap-2 disabled:opacity-60 shadow-lg shadow-[#f1592a]/30"
         >
           {saving && <Loader2 className="w-5 h-5 animate-spin" />}
-          Tạo đơn & sinh mã QR
+          {source === "shopee" ? "Tạo đơn & sinh mã QR" : "Tạo đơn"}
         </button>
       </form>
     </div>
