@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { prepareZXingModule, readBarcodes } from "zxing-wasm/reader";
+import Quagga from "@ericblade/quagga2";
 import { SwitchCamera, ImageUp } from "lucide-react";
 
 // Dùng bản wasm serve từ chính app (tránh phụ thuộc CDN ngoài)
@@ -20,6 +21,23 @@ const READ_OPTS = {
   tryInvert: true,
   tryDownscale: true,
 } as const;
+
+// Engine thứ 2: Quagga2 (thuật toán khác zxing, mạnh với barcode 1D in nhiệt)
+function decodeWithQuagga(src: string): Promise<string | null> {
+  return new Promise((resolve) => {
+    Quagga.decodeSingle(
+      {
+        src,
+        numOfWorkers: 0,
+        locate: true,
+        decoder: {
+          readers: ["code_128_reader", "i2of5_reader", "code_39_reader", "ean_reader"],
+        },
+      },
+      (result) => resolve(result?.codeResult?.code ?? null)
+    );
+  });
+}
 
 // Samsung/Chrome hay mở camera với focus cố định — ép lấy nét liên tục
 async function enableContinuousFocus(stream: MediaStream) {
@@ -168,12 +186,17 @@ export default function Scanner({
           ctx.drawImage(video, 0, 0);
           const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
           const results = await readBarcodes(imageData, READ_OPTS);
+          let text = results.find((r) => r.text)?.text || "";
+          // engine 2: Quagga — chạy mỗi 3 khung hình một lần cho nhẹ máy
+          if (!text && !stopped && scanCountRef.current % 3 === 0) {
+            text = (await decodeWithQuagga(canvas.toDataURL("image/png"))) || "";
+          }
           scanCountRef.current++;
           if (!stopped)
             setHud(`${video.videoWidth}×${video.videoHeight} · đã dò ${scanCountRef.current} khung hình`);
-          if (!stopped && results.length && results[0].text) {
+          if (!stopped && text) {
             setDetectError("");
-            onScanRef.current(results[0].text);
+            onScanRef.current(text);
           }
         } catch (err) {
           if (!stopped) setDetectError(`Lỗi giải mã: ${err}`);
@@ -195,8 +218,17 @@ export default function Scanner({
     setDetectError("");
     try {
       const results = await readBarcodes(file, READ_OPTS);
-      if (results.length && results[0].text) {
-        onScanRef.current(results[0].text);
+      let text = results.find((r) => r.text)?.text || "";
+      if (!text) {
+        const url = URL.createObjectURL(file);
+        try {
+          text = (await decodeWithQuagga(url)) || "";
+        } finally {
+          URL.revokeObjectURL(url);
+        }
+      }
+      if (text) {
+        onScanRef.current(text);
       } else {
         setDetectError("Không tìm thấy barcode trong ảnh — chụp gần và rõ nét hơn thử");
       }
