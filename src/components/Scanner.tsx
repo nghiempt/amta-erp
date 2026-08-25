@@ -5,11 +5,12 @@ import { BarcodeDetector, prepareZXingModule } from "barcode-detector/ponyfill";
 import { SwitchCamera } from "lucide-react";
 
 // Dùng bản wasm serve từ chính app (tránh phụ thuộc CDN ngoài)
-prepareZXingModule({
+const enginePromise = prepareZXingModule({
   overrides: {
     locateFile: (path: string) =>
       path.endsWith(".wasm") ? "/zxing_reader.wasm" : path,
   },
+  fireImmediately: true,
 });
 
 // Barcode phiếu TikTok là Code 128; QR cho mã nội bộ AMTA
@@ -32,6 +33,19 @@ export default function Scanner({
   const [cameras, setCameras] = useState<{ id: string; label: string }[]>([]);
   const [camIndex, setCamIndex] = useState(-1);
   const [error, setError] = useState("");
+  const [engineReady, setEngineReady] = useState(false);
+  const [detectError, setDetectError] = useState("");
+
+  // Nạp engine wasm — lỗi thì hiện rõ thay vì im lặng
+  useEffect(() => {
+    let cancelled = false;
+    enginePromise
+      .then(() => !cancelled && setEngineReady(true))
+      .catch((err) => !cancelled && setDetectError(`Không tải được bộ giải mã: ${err}`));
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Mở camera lần đầu (facingMode: environment) rồi liệt kê camera để đổi
   useEffect(() => {
@@ -120,10 +134,13 @@ export default function Scanner({
         try {
           const results = await detector.detect(video);
           if (!stopped && results.length && results[0].rawValue) {
+            setDetectError("");
             onScanRef.current(results[0].rawValue);
           }
-        } catch {
-          // frame lỗi — thử lại vòng sau
+        } catch (err) {
+          // hiện lỗi để chẩn đoán thay vì nuốt im lặng
+          if (!stopped) setDetectError(`Lỗi giải mã: ${err}`);
+          console.error("Scanner detect error:", err);
         }
       }
       timer = setTimeout(tick, 150);
@@ -141,13 +158,25 @@ export default function Scanner({
       {error ? (
         <div className="p-6 text-center text-sm text-red-600 bg-red-50 rounded-2xl">{error}</div>
       ) : (
-        <video
-          ref={videoRef}
-          playsInline
-          muted
-          autoPlay
-          className="w-full min-h-64 max-h-96 object-cover rounded-2xl bg-black"
-        />
+        <>
+          <video
+            ref={videoRef}
+            playsInline
+            muted
+            autoPlay
+            className="w-full min-h-64 max-h-96 object-cover rounded-2xl bg-black"
+          />
+          {!engineReady && !detectError && (
+            <p className="absolute top-3 left-3 right-3 text-center text-xs text-white bg-black/60 rounded-lg px-3 py-1.5">
+              Đang tải bộ giải mã…
+            </p>
+          )}
+          {detectError && (
+            <p className="absolute top-3 left-3 right-3 text-center text-xs text-white bg-red-600/85 rounded-lg px-3 py-1.5 break-all">
+              {detectError}
+            </p>
+          )}
+        </>
       )}
       {cameras.length > 1 && !error && (
         <button
