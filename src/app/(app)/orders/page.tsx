@@ -69,7 +69,7 @@ function OrdersList() {
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Tìm theo mã, tên đơn, khách hàng..."
-          className="w-full pl-11 pr-10 py-3 rounded-2xl bg-[#fbeee7] border-2 border-transparent focus:border-[#f1592a] focus:bg-white outline-none transition placeholder:text-slate-400"
+          className="w-full pl-11 pr-10 py-3 rounded-2xl bg-[#fbeee7] text-sm border-2 border-transparent focus:border-[#f1592a] focus:bg-white outline-none transition placeholder:text-slate-400"
         />
         {q && (
           <button onClick={() => setQ("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 p-1">

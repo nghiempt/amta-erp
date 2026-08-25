@@ -8,7 +8,6 @@ import {
   ScanBarcode,
   Keyboard,
   Loader2,
-  CheckCircle2,
   Printer,
   PlusCircle,
 } from "lucide-react";
@@ -28,7 +27,7 @@ interface CreatedOrder {
 
 export default function NewOrderPage() {
   const router = useRouter();
-  const [source, setSource] = useState<Source>("tiktok");
+  const [source, setSource] = useState<Source>("shopee");
   const [scanning, setScanning] = useState(false);
   const [sourceOrderId, setSourceOrderId] = useState("");
   const [name, setName] = useState("");
@@ -121,16 +120,12 @@ export default function NewOrderPage() {
   }
 
   const inputCls =
-    "w-full px-4 py-3 rounded-xl bg-[#fbeee7] text-slate-800 placeholder:text-slate-400 border-2 border-transparent focus:border-[#f1592a] focus:bg-white outline-none transition";
+    "w-full px-4 py-3 rounded-xl bg-[#fbeee7] text-sm text-slate-800 placeholder:text-slate-400 border-2 border-transparent focus:border-[#f1592a] focus:bg-white outline-none transition";
 
   // ==== Màn hình sau khi tạo đơn Shopee: preview phiếu + in ====
   if (created) {
     return (
       <div className="p-4 md:p-8 max-w-md mx-auto space-y-4">
-        <p className="text-sm text-emerald-700 bg-emerald-50 rounded-xl px-4 py-3 flex items-center gap-2">
-          <CheckCircle2 className="w-4 h-4 shrink-0" /> Đã tạo đơn thành công
-        </p>
-
         {/* Preview phiếu */}
         <div className="bg-white rounded-2xl border border-[#f6d9c3] shadow-sm p-6 text-center">
           <p className="font-mono font-bold text-xl text-slate-900">{created.code}</p>
@@ -179,18 +174,6 @@ export default function NewOrderPage() {
       <div className="grid grid-cols-2 gap-3">
         <button
           type="button"
-          onClick={() => pickSource("tiktok")}
-          className={`flex flex-col items-center gap-2 p-4 rounded-2xl border-2 transition ${
-            source === "tiktok"
-              ? "border-[#f1592a] bg-[#f1592a] text-white shadow-lg shadow-[#f1592a]/25"
-              : "border-[#f6d9c3] bg-white text-slate-600 hover:border-[#f1592a]/40"
-          }`}
-        >
-          <ScanBarcode className="w-7 h-7" />
-          <span className="text-sm font-semibold">TikTok — quét barcode</span>
-        </button>
-        <button
-          type="button"
           onClick={() => pickSource("shopee")}
           className={`flex flex-col items-center gap-2 p-4 rounded-2xl border-2 transition ${
             source === "shopee"
@@ -200,6 +183,18 @@ export default function NewOrderPage() {
         >
           <Keyboard className="w-7 h-7" />
           <span className="text-sm font-semibold">Shopee — nhập mã đơn</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => pickSource("tiktok")}
+          className={`flex flex-col items-center gap-2 p-4 rounded-2xl border-2 transition ${
+            source === "tiktok"
+              ? "border-[#f1592a] bg-[#f1592a] text-white shadow-lg shadow-[#f1592a]/25"
+              : "border-[#f6d9c3] bg-white text-slate-600 hover:border-[#f1592a]/40"
+          }`}
+        >
+          <ScanBarcode className="w-7 h-7" />
+          <span className="text-sm font-semibold">TikTok — quét barcode</span>
         </button>
       </div>
 
@@ -238,11 +233,6 @@ export default function NewOrderPage() {
             placeholder={source === "tiktok" ? "Quét barcode hoặc nhập tay" : "VD: 2508ABCDEF1234"}
             className={`${inputCls} font-mono`}
           />
-          {sourceOrderId && (
-            <p className="text-xs text-emerald-600 mt-1.5 inline-flex items-center gap-1">
-              <CheckCircle2 className="w-3.5 h-3.5" /> Đã có mã đơn
-            </p>
-          )}
         </div>
 
         <div>

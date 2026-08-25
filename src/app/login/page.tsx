@@ -65,7 +65,7 @@ function LoginForm() {
             autoComplete="username"
             required
             placeholder="Tài khoản"
-            className="w-full px-5 py-4 rounded-xl bg-[#fbeee7] text-slate-800 placeholder:text-slate-400 border-2 border-transparent focus:border-[#f1592a] focus:bg-white outline-none transition"
+            className="w-full px-5 py-3.5 rounded-xl bg-[#fbeee7] text-sm text-slate-800 placeholder:text-slate-400 border-2 border-transparent focus:border-[#f1592a] focus:bg-white outline-none transition"
           />
           <div className="relative">
             <input
@@ -93,7 +93,7 @@ function LoginForm() {
 
           <button
             disabled={loading}
-            className="w-full py-4 rounded-xl bg-[#f1592a] hover:bg-[#e14e20] active:scale-[0.99] text-white font-bold text-lg transition flex items-center justify-center gap-2 disabled:opacity-60 shadow-lg shadow-[#f1592a]/35"
+            className="w-full py-3.5 rounded-xl bg-[#f1592a] hover:bg-[#e14e20] active:scale-[0.99] text-white font-bold text-base transition flex items-center justify-center gap-2 disabled:opacity-60 shadow-lg shadow-[#f1592a]/35"
           >
             {loading && <Loader2 className="w-5 h-5 animate-spin" />}
             Đăng nhập
