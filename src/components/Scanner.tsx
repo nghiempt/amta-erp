@@ -1,28 +1,19 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Html5Qrcode, Html5QrcodeSupportedFormats } from "html5-qrcode";
+import { BarcodeDetector, prepareZXingModule } from "barcode-detector/ponyfill";
 import { SwitchCamera } from "lucide-react";
 
-// Barcode phiếu TikTok là Code 128 (1D) — chỉ dò các format cần thiết cho nhanh/chuẩn
-const FORMATS = [
-  Html5QrcodeSupportedFormats.QR_CODE,
-  Html5QrcodeSupportedFormats.CODE_128,
-];
-
-const QR_CONFIG = {
-  fps: 10,
-  // khung ngang rộng, thấp — hợp với barcode 1D dài
-  qrbox: (w: number, h: number) => {
-    const width = Math.max(200, Math.floor(Math.min(w, h * 1.6) * 0.9));
-    return { width, height: Math.max(120, Math.floor(width * 0.45)) };
+// Dùng bản wasm serve từ chính app (tránh phụ thuộc CDN ngoài)
+prepareZXingModule({
+  overrides: {
+    locateFile: (path: string) =>
+      path.endsWith(".wasm") ? "/zxing_reader.wasm" : path,
   },
-  // camera độ phân giải cao để đọc được vạch mảnh
-  videoConstraints: {
-    width: { ideal: 1920 },
-    height: { ideal: 1080 },
-  } as MediaTrackConstraints,
-};
+});
+
+// Barcode phiếu TikTok là Code 128; QR cho mã nội bộ AMTA
+const detector = new BarcodeDetector({ formats: ["qr_code", "code_128"] });
 
 export default function Scanner({
   onScan,
@@ -36,90 +27,129 @@ export default function Scanner({
   const pausedRef = useRef(paused);
   pausedRef.current = paused;
 
-  const scannerRef = useRef<Html5Qrcode | null>(null);
-  const busyRef = useRef(false);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
   const [cameras, setCameras] = useState<{ id: string; label: string }[]>([]);
   const [camIndex, setCamIndex] = useState(-1);
+  const [error, setError] = useState("");
 
-  // Lấy danh sách camera, ưu tiên camera sau
+  // Mở camera lần đầu (facingMode: environment) rồi liệt kê camera để đổi
   useEffect(() => {
     let cancelled = false;
-    const timer = setTimeout(() => {
-      Html5Qrcode.getCameras()
-        .then((cams) => {
-          if (cancelled || !cams.length) return;
-          setCameras(cams);
-          const backIdx = cams.findIndex((c) => /back|rear|sau|environment/i.test(c.label));
-          // nhiều máy Android liệt kê cam sau ở cuối danh sách
-          setCamIndex(backIdx >= 0 ? backIdx : cams.length - 1);
-        })
-        .catch((err) => {
-          if (cancelled) return;
-          const el = document.getElementById("qr-reader");
-          if (el)
-            el.innerHTML = `<div class="p-6 text-center text-sm text-red-600 bg-red-50 rounded-2xl">Không mở được camera: ${err}. Hãy cấp quyền camera cho trình duyệt.</div>`;
+
+    async function init() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: { ideal: "environment" },
+            width: { ideal: 1920 },
+            height: { ideal: 1080 },
+          },
         });
-    }, 150); // né mount "nháp" của React Strict Mode
+        if (cancelled) {
+          stream.getTracks().forEach((t) => t.stop());
+          return;
+        }
+        streamRef.current = stream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          await videoRef.current.play().catch(() => {});
+        }
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const cams = devices
+          .filter((d) => d.kind === "videoinput")
+          .map((d, i) => ({ id: d.deviceId, label: d.label || `Camera ${i + 1}` }));
+        if (!cancelled) setCameras(cams);
+      } catch (err) {
+        if (!cancelled)
+          setError(`Không mở được camera: ${err}. Hãy cấp quyền camera cho trình duyệt.`);
+      }
+    }
+    init();
+
     return () => {
       cancelled = true;
-      clearTimeout(timer);
+      streamRef.current?.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
     };
   }, []);
 
-  // Start / restart khi đổi camera
+  // Đổi camera theo lựa chọn
   useEffect(() => {
     if (camIndex < 0 || !cameras[camIndex]) return;
     let cancelled = false;
 
-    const run = async () => {
-      if (busyRef.current) return;
-      busyRef.current = true;
+    async function switchCam() {
+      streamRef.current?.getTracks().forEach((t) => t.stop());
       try {
-        if (scannerRef.current?.isScanning) await scannerRef.current.stop();
-        if (cancelled) return;
-        if (!scannerRef.current)
-          scannerRef.current = new Html5Qrcode("qr-reader", {
-            formatsToSupport: FORMATS,
-            // engine dò mã native của trình duyệt — đọc barcode 1D tốt hơn hẳn
-            useBarCodeDetectorIfSupported: true,
-            verbose: false,
-          });
-        await scannerRef.current.start(
-          cameras[camIndex].id,
-          {
-            ...QR_CONFIG,
-            videoConstraints: {
-              ...QR_CONFIG.videoConstraints,
-              deviceId: { exact: cameras[camIndex].id },
-            },
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            deviceId: { exact: cameras[camIndex].id },
+            width: { ideal: 1920 },
+            height: { ideal: 1080 },
           },
-          (text) => {
-            if (!pausedRef.current) onScanRef.current(text);
-          },
-          () => {}
-        );
-        if (cancelled) await scannerRef.current.stop();
+        });
+        if (cancelled) {
+          stream.getTracks().forEach((t) => t.stop());
+          return;
+        }
+        streamRef.current = stream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          await videoRef.current.play().catch(() => {});
+        }
       } catch {
-        // camera bị chiếm hoặc bị gỡ giữa chừng — bỏ qua
-      } finally {
-        busyRef.current = false;
+        // camera bị chiếm — bỏ qua
       }
-    };
-    run();
-
+    }
+    switchCam();
     return () => {
       cancelled = true;
-      const s = scannerRef.current;
-      if (s && !busyRef.current && s.isScanning) {
-        s.stop().catch(() => {});
-      }
     };
   }, [camIndex, cameras]);
 
+  // Vòng lặp dò mã
+  useEffect(() => {
+    let stopped = false;
+    let timer: ReturnType<typeof setTimeout>;
+
+    async function tick() {
+      if (stopped) return;
+      const video = videoRef.current;
+      if (video && video.readyState >= 2 && !pausedRef.current) {
+        try {
+          const results = await detector.detect(video);
+          if (!stopped && results.length && results[0].rawValue) {
+            onScanRef.current(results[0].rawValue);
+          }
+        } catch {
+          // frame lỗi — thử lại vòng sau
+        }
+      }
+      timer = setTimeout(tick, 150);
+    }
+    tick();
+
+    return () => {
+      stopped = true;
+      clearTimeout(timer);
+    };
+  }, []);
+
   return (
-    <div className="relative">
-      <div id="qr-reader" className="w-full min-h-64 overflow-hidden rounded-2xl bg-black" />
-      {cameras.length > 1 && (
+    <div className="relative" id="qr-reader">
+      {error ? (
+        <div className="p-6 text-center text-sm text-red-600 bg-red-50 rounded-2xl">{error}</div>
+      ) : (
+        <video
+          ref={videoRef}
+          playsInline
+          muted
+          autoPlay
+          className="w-full min-h-64 max-h-96 object-cover rounded-2xl bg-black"
+        />
+      )}
+      {cameras.length > 1 && !error && (
         <button
           type="button"
           onClick={() => setCamIndex((i) => (i + 1) % cameras.length)}

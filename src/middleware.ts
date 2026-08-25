@@ -9,7 +9,7 @@ export async function middleware(req: NextRequest) {
     PUBLIC_PATHS.some((p) => pathname.startsWith(p)) ||
     pathname.startsWith("/_next") ||
     pathname === "/favicon.ico" ||
-    /\.(png|jpg|jpeg|svg|gif|webp|ico)$/.test(pathname)
+    /\.(png|jpg|jpeg|svg|gif|webp|ico|wasm)$/.test(pathname)
   ) {
     return NextResponse.next();
   }

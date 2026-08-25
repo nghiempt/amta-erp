@@ -9,6 +9,7 @@
     "seed": "tsx --env-file=.env.local scripts/seed.ts"
   },
   "dependencies": {
+    "barcode-detector": "^3.2.2",
     "bcryptjs": "^3.0.3",
     "html5-qrcode": "^2.3.8",
     "jose": "^6.2.10",
