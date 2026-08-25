@@ -1,15 +1,27 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Html5Qrcode } from "html5-qrcode";
+import { Html5Qrcode, Html5QrcodeSupportedFormats } from "html5-qrcode";
 import { SwitchCamera } from "lucide-react";
+
+// Barcode phiếu TikTok là Code 128 (1D) — chỉ dò các format cần thiết cho nhanh/chuẩn
+const FORMATS = [
+  Html5QrcodeSupportedFormats.QR_CODE,
+  Html5QrcodeSupportedFormats.CODE_128,
+];
 
 const QR_CONFIG = {
   fps: 10,
+  // khung ngang rộng, thấp — hợp với barcode 1D dài
   qrbox: (w: number, h: number) => {
-    const size = Math.max(150, Math.floor(Math.min(w, h) * 0.75));
-    return { width: size, height: Math.max(100, Math.floor(size * 0.65)) };
+    const width = Math.max(200, Math.floor(Math.min(w, h * 1.6) * 0.9));
+    return { width, height: Math.max(120, Math.floor(width * 0.45)) };
   },
+  // camera độ phân giải cao để đọc được vạch mảnh
+  videoConstraints: {
+    width: { ideal: 1920 },
+    height: { ideal: 1080 },
+  } as MediaTrackConstraints,
 };
 
 export default function Scanner({
@@ -65,10 +77,22 @@ export default function Scanner({
       try {
         if (scannerRef.current?.isScanning) await scannerRef.current.stop();
         if (cancelled) return;
-        if (!scannerRef.current) scannerRef.current = new Html5Qrcode("qr-reader");
+        if (!scannerRef.current)
+          scannerRef.current = new Html5Qrcode("qr-reader", {
+            formatsToSupport: FORMATS,
+            // engine dò mã native của trình duyệt — đọc barcode 1D tốt hơn hẳn
+            useBarCodeDetectorIfSupported: true,
+            verbose: false,
+          });
         await scannerRef.current.start(
           cameras[camIndex].id,
-          QR_CONFIG,
+          {
+            ...QR_CONFIG,
+            videoConstraints: {
+              ...QR_CONFIG.videoConstraints,
+              deviceId: { exact: cameras[camIndex].id },
+            },
+          },
           (text) => {
             if (!pausedRef.current) onScanRef.current(text);
           },
