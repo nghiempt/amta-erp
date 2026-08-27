@@ -39,24 +39,52 @@ function decodeWithQuagga(src: string): Promise<string | null> {
   });
 }
 
-// Tiếng "bíp" báo quét thành công
+// Tiếng "bíp" báo quét thành công.
+// AudioContext phải được tạo/resume trong 1 thao tác chạm của người dùng,
+// nếu không sẽ bị suspended và phát không ra tiếng (iOS/Chrome mobile).
 let audioCtx: AudioContext | null = null;
-function beep() {
+
+function getAudioCtx(): AudioContext | null {
   try {
-    audioCtx ??= new AudioContext();
-    if (audioCtx.state === "suspended") audioCtx.resume();
-    const osc = audioCtx.createOscillator();
-    const gain = audioCtx.createGain();
-    osc.type = "square";
-    osc.frequency.value = 1800;
-    gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.15);
-    osc.connect(gain).connect(audioCtx.destination);
-    osc.start();
-    osc.stop(audioCtx.currentTime + 0.15);
+    if (!audioCtx) {
+      const AC =
+        window.AudioContext ||
+        (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (!AC) return null;
+      audioCtx = new AC();
+    }
+    return audioCtx;
   } catch {
-    // trình duyệt chặn audio — thôi
+    return null;
   }
+}
+
+// Gọi trong user gesture để mở khoá audio
+function unlockAudio() {
+  const ctx = getAudioCtx();
+  if (ctx && ctx.state === "suspended") ctx.resume().catch(() => {});
+}
+
+function beep() {
+  const ctx = getAudioCtx();
+  if (!ctx) return;
+  const play = () => {
+    try {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "square";
+      osc.frequency.value = 1800;
+      gain.gain.setValueAtTime(0.2, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.15);
+    } catch {
+      // trình duyệt chặn audio — thôi
+    }
+  };
+  if (ctx.state === "suspended") ctx.resume().then(play).catch(() => {});
+  else play();
 }
 
 // Samsung/Chrome hay mở camera với focus cố định — ép lấy nét liên tục
@@ -97,9 +125,19 @@ export default function Scanner({
   const [error, setError] = useState("");
   const [engineReady, setEngineReady] = useState(false);
   const [detectError, setDetectError] = useState("");
-  const [hud, setHud] = useState("");
   const [cameraOn, setCameraOn] = useState(true);
   const scanCountRef = useRef(0);
+
+  // Mở khoá audio ở lần chạm đầu tiên (mở tab quét, bấm nút... đều tính)
+  useEffect(() => {
+    const unlock = () => unlockAudio();
+    window.addEventListener("pointerdown", unlock);
+    window.addEventListener("touchstart", unlock);
+    return () => {
+      window.removeEventListener("pointerdown", unlock);
+      window.removeEventListener("touchstart", unlock);
+    };
+  }, []);
 
   // Nạp engine wasm — lỗi thì hiện rõ thay vì im lặng
   useEffect(() => {
@@ -214,8 +252,6 @@ export default function Scanner({
             text = (await decodeWithQuagga(canvas.toDataURL("image/png"))) || "";
           }
           scanCountRef.current++;
-          if (!stopped)
-            setHud(`${video.videoWidth}×${video.videoHeight} · đã dò ${scanCountRef.current} khung hình`);
           if (!stopped && text) {
             setDetectError("");
             beep();
@@ -290,11 +326,6 @@ export default function Scanner({
           {cameraOn && !engineReady && !detectError && (
             <p className="absolute top-3 left-3 right-3 text-center text-xs text-white bg-black/60 rounded-lg px-3 py-1.5">
               Đang tải bộ giải mã…
-            </p>
-          )}
-          {cameraOn && engineReady && !detectError && hud && (
-            <p className="absolute top-3 left-3 right-32 text-center text-[11px] text-white/90 bg-black/50 rounded-lg px-3 py-1">
-              {hud}
             </p>
           )}
           {detectError && (

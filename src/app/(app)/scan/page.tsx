@@ -87,16 +87,19 @@ export default function ScanPage() {
         <>
           <Scanner onScan={lookup} paused={loading} />
           <div className="flex gap-2">
-            <input
-              value={manual}
-              onChange={(e) => setManual(e.target.value.toUpperCase())}
-              placeholder="Hoặc nhập mã: AMTA-..."
-              className="flex-1 px-3.5 py-3 rounded-xl border border-slate-200 bg-white font-mono text-sm outline-none focus:border-indigo-500 placeholder:text-xs placeholder:font-sans"
-            />
+            <div className="relative flex-1">
+              <Search className="w-5 h-5 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <input
+                value={manual}
+                onChange={(e) => setManual(e.target.value.toUpperCase())}
+                placeholder="Hoặc nhập mã: AMTA-..."
+                className="w-full pl-11 pr-4 py-3 rounded-2xl bg-[#fbeee7] font-mono text-sm border-2 border-transparent focus:border-[#f1592a] focus:bg-white outline-none transition placeholder:text-slate-400 placeholder:text-xs placeholder:font-sans"
+              />
+            </div>
             <button
               onClick={() => manual && lookup(manual)}
               disabled={!manual || loading}
-              className="px-4 rounded-xl bg-slate-900 text-white text-sm font-medium disabled:opacity-50 inline-flex items-center gap-1.5"
+              className="px-4 rounded-2xl bg-[#f1592a] text-white text-sm font-medium disabled:opacity-50 inline-flex items-center gap-1.5"
             >
               {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Search className="w-4 h-4" /> Tìm</>}
             </button>
