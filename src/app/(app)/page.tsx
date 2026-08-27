@@ -20,7 +20,7 @@ export default async function DashboardPage() {
   const user = await getSession();
   if (!user) redirect("/login");
   if (user.role === "cskh") redirect("/orders/new");
-  if (user.role !== "admin") redirect("/orders");
+  if (user.role !== "admin") redirect("/scan");
 
   await dbConnect();
   const startOfDay = new Date();

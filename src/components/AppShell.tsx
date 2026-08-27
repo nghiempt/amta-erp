@@ -25,8 +25,8 @@ const navFor = (role: string) => {
       { href: "/scan", label: "Quét QR", icon: ScanLine },
     ];
   return [
+    { href: "/scan", label: "Quét mã", icon: ScanLine },
     { href: "/orders", label: "Đơn hàng", icon: ClipboardList },
-    { href: "/scan", label: "Quét QR", icon: ScanLine },
   ];
 };
 
