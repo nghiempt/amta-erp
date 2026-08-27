@@ -3,7 +3,7 @@ import mongoose from "mongoose";
 import { dbConnect } from "@/lib/db";
 import { Order } from "@/models/Order";
 import { getSession } from "@/lib/auth";
-import { nextStage, STAGE_LABELS, type OrderStatus } from "@/lib/stages";
+import { nextStage, STAGES, STAGE_LABELS, type OrderStatus, type Stage } from "@/lib/stages";
 
 async function findOrder(id: string) {
   if (mongoose.isValidObjectId(id)) {
@@ -48,8 +48,8 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   }
 
   if (action === "cancel") {
-    if (user.role !== "admin")
-      return NextResponse.json({ error: "Chỉ admin được huỷ đơn" }, { status: 403 });
+    if (user.role !== "admin" && user.role !== "cskh")
+      return NextResponse.json({ error: "Chỉ Quản lý hoặc CSKH được huỷ đơn" }, { status: 403 });
     if (order.status === "cancelled")
       return NextResponse.json({ error: "Đơn đã huỷ rồi" }, { status: 400 });
     order.status = "cancelled";
@@ -58,6 +58,30 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     order.history.push({ status: "cancelled", at: new Date(), byName: user.name, byId: user.id, note: body.reason });
     await order.save();
     return NextResponse.json({ order, message: "Đã huỷ đơn" });
+  }
+
+  // Báo lỗi sản xuất: chuyển đơn về làm lại từ khâu targetStage.
+  // Không xoá lịch sử cũ — ghi tiếp entry mới để quản lý biết ai làm ở mỗi lượt.
+  if (action === "rework") {
+    if (order.status === "cancelled")
+      return NextResponse.json({ error: "Đơn đã bị huỷ, không thể cập nhật" }, { status: 400 });
+    const target = body.targetStage as Stage;
+    const idx = STAGES.indexOf(target);
+    if (idx < 1)
+      return NextResponse.json({ error: "Khâu làm lại không hợp lệ" }, { status: 400 });
+    // status = khâu ngay trước target → đơn hiển thị "Chờ <target>"
+    const revertTo = STAGES[idx - 1];
+    order.status = revertTo;
+    order.statusChangedAt = new Date();
+    order.history.push({
+      status: revertTo,
+      at: new Date(),
+      byName: user.name,
+      byId: user.id,
+      note: `Báo lỗi: ${body.reason || "không rõ"} — làm lại từ khâu ${STAGE_LABELS[target]}`,
+    });
+    await order.save();
+    return NextResponse.json({ order, message: `Đã chuyển đơn về làm lại từ khâu "${STAGE_LABELS[target]}"` });
   }
 
   if (action === "update") {

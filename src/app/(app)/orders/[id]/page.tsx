@@ -13,7 +13,7 @@ import {
   User as UserIcon,
 } from "lucide-react";
 import { StatusBadge, SourceBadge, fmtVnd, timeAgo, isOverdue } from "@/components/OrderBits";
-import { STAGE_LABELS, nextStage, type OrderStatus } from "@/lib/stages";
+import { STAGE_LABELS, nextStage, type OrderStatus, type Stage } from "@/lib/stages";
 
 interface HistoryEntry {
   status: OrderStatus;
@@ -51,6 +51,9 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
   const [error, setError] = useState("");
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
+  const [showReport, setShowReport] = useState(false);
+  const [reportReason, setReportReason] = useState("");
+  const [reportStage, setReportStage] = useState<Stage>("in");
 
   const load = useCallback(async () => {
     const [oRes, meRes] = await Promise.all([fetch(`/api/orders/${id}`), fetch("/api/auth/me")]);
@@ -84,6 +87,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
     }
     setBusy(false);
     setConfirmCancel(false);
+    setShowReport(false);
   }
 
   function printQr() {
@@ -189,7 +193,55 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
         </button>
       )}
 
-      {role === "admin" && order.status !== "cancelled" && order.status !== "da_giao" && (
+      {/* Báo lỗi sản xuất — chuyển đơn về làm lại từ khâu bị lỗi */}
+      {order.status !== "cancelled" && order.status !== "created" && (
+        showReport ? (
+          <div className="bg-white rounded-2xl border border-amber-300 p-4 space-y-3">
+            <p className="text-sm font-medium text-slate-700">Báo lỗi sản xuất</p>
+            <input
+              value={reportReason}
+              onChange={(e) => setReportReason(e.target.value)}
+              placeholder="Lỗi gì? VD: Ảnh bị trầy"
+              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 outline-none focus:border-amber-400"
+            />
+            <div>
+              <label className="text-xs text-slate-500 mb-1 block">Làm lại từ khâu</label>
+              <select
+                value={reportStage}
+                onChange={(e) => setReportStage(e.target.value as Stage)}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 outline-none focus:border-amber-400 bg-white"
+              >
+                {(["ky_thuat", "in", "ep", "gia_cong", "dong_goi"] as Stage[]).map((s) => (
+                  <option key={s} value={s}>
+                    {STAGE_LABELS[s]}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => setShowReport(false)} className="flex-1 py-2.5 rounded-xl bg-slate-100 text-sm font-medium text-slate-600">
+                Không
+              </button>
+              <button
+                onClick={() => patch({ action: "rework", targetStage: reportStage, reason: reportReason })}
+                disabled={busy || !reportReason.trim()}
+                className="flex-1 py-2.5 rounded-xl bg-amber-500 text-white text-sm font-semibold disabled:opacity-60"
+              >
+                Xác nhận báo lỗi
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            onClick={() => setShowReport(true)}
+            className="w-full py-3 rounded-2xl border border-amber-300 text-amber-700 font-medium text-sm flex items-center justify-center gap-2 bg-white active:bg-amber-50"
+          >
+            ⚠️ Báo lỗi — làm lại từ khâu trước
+          </button>
+        )
+      )}
+
+      {(role === "admin" || role === "cskh") && order.status !== "cancelled" && order.status !== "da_giao" && (
         confirmCancel ? (
           <div className="bg-white rounded-2xl border border-red-200 p-4 space-y-3">
             <p className="text-sm font-medium text-slate-700">Lý do huỷ đơn?</p>
@@ -233,7 +285,9 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                 {i < order.history.length - 1 && <span className="flex-1 w-px bg-slate-200 mt-1" />}
               </div>
               <div className="pb-1">
-                <p className="text-sm font-semibold text-slate-800">{STAGE_LABELS[h.status]}</p>
+                <p className={`text-sm font-semibold ${h.note?.startsWith("Báo lỗi") ? "text-red-600" : "text-slate-800"}`}>
+                  {h.note?.startsWith("Báo lỗi") ? "⚠ Báo lỗi sản xuất" : STAGE_LABELS[h.status]}
+                </p>
                 <p className="text-xs text-slate-500">
                   {h.byName} · {new Date(h.at).toLocaleString("vi-VN")}
                 </p>

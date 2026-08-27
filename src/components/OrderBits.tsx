@@ -19,8 +19,13 @@ export interface OrderLite {
   status: OrderStatus;
   statusChangedAt: string;
   createdAt: string;
-  history?: { status: OrderStatus; byName: string }[];
+  history?: { status: OrderStatus; byName: string; at?: string; note?: string }[];
 }
+
+const fmtShortTime = (iso?: string) =>
+  iso
+    ? new Date(iso).toLocaleString("vi-VN", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit" })
+    : "";
 
 // Ai làm khâu nào — entry history status X = người đã quét/thực hiện khâu X
 const HISTORY_ROLE_LABELS: Record<OrderStatus, string> = {
@@ -198,12 +203,18 @@ export function OrderCard({ order }: { order: OrderLite }) {
         <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-2.5 text-xs text-slate-500">
           {order.history
             .filter((h) => h.byName)
-            .map((h, i) => (
-              <span key={i}>
-                <span className="text-slate-400">{HISTORY_ROLE_LABELS[h.status] || h.status}:</span>{" "}
-                <span className="font-medium text-slate-600">{h.byName}</span>
-              </span>
-            ))}
+            .map((h, i) => {
+              const isReport = h.note?.startsWith("Báo lỗi");
+              return (
+                <span key={i}>
+                  <span className={isReport ? "text-red-500 font-semibold" : "text-slate-400"}>
+                    {isReport ? "⚠ Báo lỗi" : HISTORY_ROLE_LABELS[h.status] || h.status}:
+                  </span>{" "}
+                  <span className={`font-medium ${isReport ? "text-red-600" : "text-slate-600"}`}>{h.byName}</span>
+                  {h.at && <span className="text-slate-400"> ({fmtShortTime(h.at)})</span>}
+                </span>
+              );
+            })}
         </div>
       )}
       {order.note && (
