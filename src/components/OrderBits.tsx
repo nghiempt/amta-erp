@@ -3,8 +3,8 @@
 import { useState } from "react";
 import QRCode from "qrcode";
 import JsBarcode from "jsbarcode";
-import { STATUS_DISPLAY_LABELS, STAGE_COLORS, type OrderStatus } from "@/lib/stages";
-import { Clock, AlertTriangle, Printer, X } from "lucide-react";
+import { STATUS_DISPLAY_LABELS, STAGE_COLORS, STAGE_LABELS, type OrderStatus, type Stage } from "@/lib/stages";
+import { Clock, AlertTriangle, Printer, X, Loader2 } from "lucide-react";
 
 export interface OrderLite {
   _id: string;
@@ -151,9 +151,80 @@ function ReprintModal({
   );
 }
 
+// Popup báo lỗi sản xuất ngay trên card đơn — chuyển đơn về làm lại từ khâu bị lỗi
+function ReportErrorModal({ order, onClose }: { order: OrderLite; onClose: () => void }) {
+  const [reason, setReason] = useState("");
+  const [stage, setStage] = useState<Stage>("in");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  async function submit() {
+    setBusy(true);
+    setError("");
+    const res = await fetch(`/api/orders/${order._id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "rework", targetStage: stage, reason }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      setError(data.error || "Có lỗi xảy ra");
+      setBusy(false);
+      return;
+    }
+    // reload để danh sách/filter cập nhật trạng thái mới
+    window.location.reload();
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={onClose}>
+      <div
+        className="bg-white rounded-2xl w-full max-w-sm p-5 space-y-3 relative"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button onClick={onClose} className="absolute top-3 right-3 p-1.5 text-slate-400 hover:text-slate-600">
+          <X className="w-5 h-5" />
+        </button>
+        <p className="font-semibold text-slate-900">⚠️ Báo lỗi sản xuất</p>
+        <p className="text-xs text-slate-500 -mt-2">{order.name}</p>
+        <input
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          placeholder="Lỗi gì? VD: Ảnh bị trầy"
+          className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 outline-none focus:border-amber-400 text-sm"
+        />
+        <div>
+          <label className="text-xs text-slate-500 mb-1 block">Làm lại từ khâu</label>
+          <select
+            value={stage}
+            onChange={(e) => setStage(e.target.value as Stage)}
+            className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 outline-none focus:border-amber-400 bg-white text-sm"
+          >
+            {(["ky_thuat", "in", "ep", "gia_cong", "dong_goi"] as Stage[]).map((s) => (
+              <option key={s} value={s}>
+                {STAGE_LABELS[s]}
+              </option>
+            ))}
+          </select>
+        </div>
+        {error && <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>}
+        <button
+          onClick={submit}
+          disabled={busy || !reason.trim()}
+          className="w-full py-2.5 rounded-xl bg-amber-500 text-white text-sm font-semibold disabled:opacity-60 flex items-center justify-center gap-2"
+        >
+          {busy && <Loader2 className="w-4 h-4 animate-spin" />} Xác nhận báo lỗi
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function OrderCard({ order }: { order: OrderLite }) {
   const overdue = isOverdue(order);
   const [reprint, setReprint] = useState<{ qr: string; barcode: string | null } | null>(null);
+  const [reporting, setReporting] = useState(false);
+  const canReport = order.status !== "created" && order.status !== "cancelled";
 
   async function openReprint() {
     const qr = await QRCode.toDataURL(order.code, { width: 480, margin: 1 });
@@ -231,18 +302,29 @@ export function OrderCard({ order }: { order: OrderLite }) {
             <AlertTriangle className="w-3.5 h-3.5" /> Quá 30 phút
           </span>
         )}
-        {(order.source === "shopee" || order.source === "tiktok") && (
-          <button
-            onClick={openReprint}
-            className="ml-auto inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-[#fbeee7] text-[#f1592a] font-semibold active:scale-95 transition"
-          >
-            <Printer className="w-3.5 h-3.5" /> In phiếu
-          </button>
-        )}
+        <span className="ml-auto inline-flex items-center gap-1.5">
+          {canReport && (
+            <button
+              onClick={() => setReporting(true)}
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-amber-50 text-amber-700 font-semibold active:scale-95 transition"
+            >
+              <AlertTriangle className="w-3.5 h-3.5" /> Báo lỗi
+            </button>
+          )}
+          {(order.source === "shopee" || order.source === "tiktok") && (
+            <button
+              onClick={openReprint}
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-[#fbeee7] text-[#f1592a] font-semibold active:scale-95 transition"
+            >
+              <Printer className="w-3.5 h-3.5" /> In phiếu
+            </button>
+          )}
+        </span>
       </div>
       {reprint && (
         <ReprintModal order={order} qr={reprint.qr} barcode={reprint.barcode} onClose={() => setReprint(null)} />
       )}
+      {reporting && <ReportErrorModal order={order} onClose={() => setReporting(false)} />}
     </div>
   );
 }
