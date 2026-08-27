@@ -10,6 +10,7 @@ import {
   XCircle,
   RotateCcw,
   ExternalLink,
+  Search,
 } from "lucide-react";
 import { StatusBadge, SourceBadge, fmtVnd } from "@/components/OrderBits";
 import { STAGE_LABELS, nextStage, type OrderStatus } from "@/lib/stages";
@@ -90,14 +91,14 @@ export default function ScanPage() {
               value={manual}
               onChange={(e) => setManual(e.target.value.toUpperCase())}
               placeholder="Hoặc nhập mã: AMTA-..."
-              className="flex-1 px-3.5 py-3 rounded-xl border border-slate-200 bg-white font-mono text-sm outline-none focus:border-indigo-500"
+              className="flex-1 px-3.5 py-3 rounded-xl border border-slate-200 bg-white font-mono text-sm outline-none focus:border-indigo-500 placeholder:text-xs placeholder:font-sans"
             />
             <button
               onClick={() => manual && lookup(manual)}
               disabled={!manual || loading}
-              className="px-4 rounded-xl bg-slate-900 text-white text-sm font-medium disabled:opacity-50"
+              className="px-4 rounded-xl bg-slate-900 text-white text-sm font-medium disabled:opacity-50 inline-flex items-center gap-1.5"
             >
-              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Tìm"}
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Search className="w-4 h-4" /> Tìm</>}
             </button>
           </div>
           {error && (

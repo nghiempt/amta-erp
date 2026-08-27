@@ -30,11 +30,6 @@ const navFor = (role: string) => {
   ];
 };
 
-const ROLE_LABELS: Record<string, string> = {
-  admin: "Quản trị viên",
-  staff: "Nhân viên",
-  cskh: "NV CSKH",
-};
 
 export default function AppShell({
   user,
@@ -77,10 +72,9 @@ export default function AppShell({
           </div>
           <div className="flex items-center gap-3">
             <div className="text-right leading-tight">
-              <p className="text-sm font-semibold text-slate-800 max-w-36 truncate">{user.name}</p>
-              {(ROLE_LABELS[user.role] || user.role) !== user.name && (
-                <p className="text-[11px] text-[#f1592a] font-medium">{ROLE_LABELS[user.role] || user.role}</p>
-              )}
+              <p className="text-sm font-semibold text-slate-800 max-w-36 truncate">
+                {user.name.replace(/^NV\s+/i, "")}
+              </p>
             </div>
             <button
               onClick={logout}

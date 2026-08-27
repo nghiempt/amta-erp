@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { prepareZXingModule, readBarcodes } from "zxing-wasm/reader";
 import Quagga from "@ericblade/quagga2";
-import { SwitchCamera, ImageUp } from "lucide-react";
+import { SwitchCamera, ImageUp, Video, VideoOff } from "lucide-react";
 
 // Dùng bản wasm serve từ chính app (tránh phụ thuộc CDN ngoài)
 const enginePromise = prepareZXingModule({
@@ -98,6 +98,7 @@ export default function Scanner({
   const [engineReady, setEngineReady] = useState(false);
   const [detectError, setDetectError] = useState("");
   const [hud, setHud] = useState("");
+  const [cameraOn, setCameraOn] = useState(true);
   const scanCountRef = useRef(0);
 
   // Nạp engine wasm — lỗi thì hiện rõ thay vì im lặng
@@ -113,6 +114,7 @@ export default function Scanner({
 
   // Mở camera lần đầu (facingMode: environment) rồi liệt kê camera để đổi
   useEffect(() => {
+    if (!cameraOn) return; // tắt camera — cleanup phía dưới đã stop stream
     let cancelled = false;
 
     async function init() {
@@ -151,11 +153,11 @@ export default function Scanner({
       streamRef.current?.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
     };
-  }, []);
+  }, [cameraOn]);
 
   // Đổi camera theo lựa chọn
   useEffect(() => {
-    if (camIndex < 0 || !cameras[camIndex]) return;
+    if (!cameraOn || camIndex < 0 || !cameras[camIndex]) return;
     let cancelled = false;
 
     async function switchCam() {
@@ -186,7 +188,7 @@ export default function Scanner({
     return () => {
       cancelled = true;
     };
-  }, [camIndex, cameras]);
+  }, [camIndex, cameras, cameraOn]);
 
   // Vòng lặp dò mã: chụp khung hình vào canvas → readBarcodes
   useEffect(() => {
@@ -270,15 +272,28 @@ export default function Scanner({
             playsInline
             muted
             autoPlay
-            className="w-full min-h-64 max-h-96 object-cover rounded-2xl bg-black"
+            className={`w-full min-h-64 max-h-96 object-cover rounded-2xl bg-black ${cameraOn ? "" : "hidden"}`}
           />
-          {!engineReady && !detectError && (
+          {!cameraOn && (
+            <div className="w-full min-h-64 rounded-2xl bg-slate-900 flex flex-col items-center justify-center gap-3 text-slate-400">
+              <VideoOff className="w-8 h-8" />
+              <p className="text-sm">Camera đang tắt</p>
+              <button
+                type="button"
+                onClick={() => setCameraOn(true)}
+                className="px-4 py-2 rounded-xl bg-white/10 text-white text-sm font-medium active:scale-95 transition inline-flex items-center gap-1.5"
+              >
+                <Video className="w-4 h-4" /> Bật camera
+              </button>
+            </div>
+          )}
+          {cameraOn && !engineReady && !detectError && (
             <p className="absolute top-3 left-3 right-3 text-center text-xs text-white bg-black/60 rounded-lg px-3 py-1.5">
               Đang tải bộ giải mã…
             </p>
           )}
-          {engineReady && !detectError && hud && (
-            <p className="absolute top-3 left-3 right-3 text-center text-[11px] text-white/90 bg-black/50 rounded-lg px-3 py-1">
+          {cameraOn && engineReady && !detectError && hud && (
+            <p className="absolute top-3 left-3 right-32 text-center text-[11px] text-white/90 bg-black/50 rounded-lg px-3 py-1">
               {hud}
             </p>
           )}
@@ -298,9 +313,18 @@ export default function Scanner({
               onChange={(e) => e.target.files?.[0] && scanFromFile(e.target.files[0])}
             />
           </label>
+          {cameraOn && (
+            <button
+              type="button"
+              onClick={() => setCameraOn(false)}
+              className="absolute top-3 right-3 z-10 flex items-center gap-1.5 px-3 py-2 rounded-xl bg-black/60 text-white text-xs font-medium backdrop-blur active:scale-95 transition"
+            >
+              <VideoOff className="w-4 h-4" /> Tắt camera
+            </button>
+          )}
         </>
       )}
-      {cameras.length > 1 && !error && (
+      {cameraOn && cameras.length > 1 && !error && (
         <button
           type="button"
           onClick={() => setCamIndex((i) => (i + 1) % cameras.length)}
