@@ -3,7 +3,17 @@ import mongoose from "mongoose";
 import { dbConnect } from "@/lib/db";
 import { Order } from "@/models/Order";
 import { getSession } from "@/lib/auth";
-import { nextStage, STAGES, STAGE_LABELS, type OrderStatus, type Stage } from "@/lib/stages";
+import {
+  nextStage,
+  STAGES,
+  STAGE_LABELS,
+  STATUS_DISPLAY_LABELS,
+  type OrderStatus,
+  type Stage,
+} from "@/lib/stages";
+
+// Role theo khâu chỉ được quét đơn đúng khâu của mình
+const STAGE_ROLES = new Set<string>(["ky_thuat", "in", "ep", "gia_cong", "dong_goi", "da_giao"]);
 
 async function findOrder(id: string) {
   if (mongoose.isValidObjectId(id)) {
@@ -40,11 +50,22 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       return NextResponse.json({ error: "Đơn đã bị huỷ, không thể cập nhật" }, { status: 400 });
     const next = nextStage(order.status as OrderStatus);
     if (!next) return NextResponse.json({ error: "Đơn đã hoàn tất (Đã giao)" }, { status: 400 });
+    if (STAGE_ROLES.has(user.role) && user.role !== next) {
+      return NextResponse.json(
+        {
+          error: `Đơn này đang "${STATUS_DISPLAY_LABELS[order.status as OrderStatus]}" — bạn (khâu ${STAGE_LABELS[user.role as Stage]}) không quét được`,
+        },
+        { status: 403 }
+      );
+    }
     order.status = next;
     order.statusChangedAt = new Date();
     order.history.push({ status: next, at: new Date(), byName: user.name, byId: user.id, note: body.note });
     await order.save();
-    return NextResponse.json({ order, message: `Đã chuyển sang khâu "${STAGE_LABELS[next]}"` });
+    return NextResponse.json({
+      order,
+      message: `Khâu ${STAGE_LABELS[next]} đã xong — đơn chuyển sang "${STATUS_DISPLAY_LABELS[next]}"`,
+    });
   }
 
   if (action === "cancel") {

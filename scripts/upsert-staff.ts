@@ -14,13 +14,17 @@ async function main() {
   await mongoose.connect(MONGODB_URI);
   const hash = bcrypt.hashSync("123456", 10);
   const accounts = [
-    { username: "kythuat", name: "NV Kỹ thuật" },
-    { username: "in", name: "NV In" },
+    { username: "kythuat", name: "NV Kỹ thuật", role: "ky_thuat" },
+    { username: "in", name: "NV In", role: "in" },
+    { username: "ep", name: "NV Ép", role: "ep" },
+    { username: "giacong", name: "NV Gia công", role: "gia_cong" },
+    { username: "donggoi", name: "NV Đóng gói", role: "dong_goi" },
+    { username: "giaohang", name: "NV Giao hàng", role: "da_giao" },
   ];
   for (const a of accounts) {
     const r = await User.updateOne(
       { username: a.username },
-      { $set: { name: a.name, role: "staff", passwordHash: hash } },
+      { $set: { name: a.name, role: a.role, passwordHash: hash } },
       { upsert: true }
     );
     console.log(a.username, r.upsertedCount ? "created" : "updated (password reset to 123456)");

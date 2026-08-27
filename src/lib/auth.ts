@@ -7,7 +7,7 @@ export interface SessionUser {
   id: string;
   username: string;
   name: string;
-  role: "admin" | "staff" | "cskh";
+  role: string; // admin | cskh | staff | role theo khâu (ky_thuat, in, ...)
 }
 
 export async function signToken(user: SessionUser) {
@@ -26,7 +26,7 @@ export async function verifyToken(token: string): Promise<SessionUser | null> {
       id: payload.id as string,
       username: payload.username as string,
       name: payload.name as string,
-      role: payload.role as "admin" | "staff" | "cskh",
+      role: payload.role as string,
     };
   } catch {
     return null;

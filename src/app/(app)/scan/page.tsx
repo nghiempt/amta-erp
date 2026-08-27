@@ -20,6 +20,7 @@ const Scanner = dynamic(() => import("@/components/Scanner"), { ssr: false });
 interface ScannedOrder {
   _id: string;
   code: string;
+  sourceOrderId: string;
   source: string;
   name: string;
   price: number;
@@ -118,7 +119,7 @@ export default function ScanPage() {
               <div className="min-w-0">
                 <div className="flex items-center gap-2 mb-1">
                   <SourceBadge source={order.source} />
-                  <span className="text-xs font-mono text-slate-500">{order.code}</span>
+                  <span className="text-xs font-mono text-slate-500">{order.sourceOrderId}</span>
                 </div>
                 <p className="font-bold text-slate-900">{order.name}</p>
                 <p className="text-sm text-slate-500">
