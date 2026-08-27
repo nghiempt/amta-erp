@@ -1,7 +1,9 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { initBeepUnlock } from "@/lib/beep";
 import {
   LayoutDashboard,
   ClipboardList,
@@ -41,6 +43,10 @@ export default function AppShell({
   const pathname = usePathname();
   const router = useRouter();
   const nav = navFor(user.role);
+
+  // Mở khoá audio (tiếng bíp khi quét) ở cú chạm đầu tiên bất kỳ trong app —
+  // phải prime trong user gesture thì iOS mới cho phát tiếng lúc quét thành công
+  useEffect(() => initBeepUnlock(), []);
 
   async function logout() {
     await fetch("/api/auth/logout", { method: "POST" });

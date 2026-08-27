@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { prepareZXingModule, readBarcodes } from "zxing-wasm/reader";
 import Quagga from "@ericblade/quagga2";
 import { SwitchCamera, ImageUp, Video, VideoOff } from "lucide-react";
+import { beep, initBeepUnlock } from "@/lib/beep";
 
 // Dùng bản wasm serve từ chính app (tránh phụ thuộc CDN ngoài)
 const enginePromise = prepareZXingModule({
@@ -37,54 +38,6 @@ function decodeWithQuagga(src: string): Promise<string | null> {
       (result) => resolve(result?.codeResult?.code ?? null)
     );
   });
-}
-
-// Tiếng "bíp" báo quét thành công.
-// AudioContext phải được tạo/resume trong 1 thao tác chạm của người dùng,
-// nếu không sẽ bị suspended và phát không ra tiếng (iOS/Chrome mobile).
-let audioCtx: AudioContext | null = null;
-
-function getAudioCtx(): AudioContext | null {
-  try {
-    if (!audioCtx) {
-      const AC =
-        window.AudioContext ||
-        (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-      if (!AC) return null;
-      audioCtx = new AC();
-    }
-    return audioCtx;
-  } catch {
-    return null;
-  }
-}
-
-// Gọi trong user gesture để mở khoá audio
-function unlockAudio() {
-  const ctx = getAudioCtx();
-  if (ctx && ctx.state === "suspended") ctx.resume().catch(() => {});
-}
-
-function beep() {
-  const ctx = getAudioCtx();
-  if (!ctx) return;
-  const play = () => {
-    try {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = "square";
-      osc.frequency.value = 1800;
-      gain.gain.setValueAtTime(0.2, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
-      osc.connect(gain).connect(ctx.destination);
-      osc.start();
-      osc.stop(ctx.currentTime + 0.15);
-    } catch {
-      // trình duyệt chặn audio — thôi
-    }
-  };
-  if (ctx.state === "suspended") ctx.resume().then(play).catch(() => {});
-  else play();
 }
 
 // Samsung/Chrome hay mở camera với focus cố định — ép lấy nét liên tục
@@ -128,16 +81,8 @@ export default function Scanner({
   const [cameraOn, setCameraOn] = useState(true);
   const scanCountRef = useRef(0);
 
-  // Mở khoá audio ở lần chạm đầu tiên (mở tab quét, bấm nút... đều tính)
-  useEffect(() => {
-    const unlock = () => unlockAudio();
-    window.addEventListener("pointerdown", unlock);
-    window.addEventListener("touchstart", unlock);
-    return () => {
-      window.removeEventListener("pointerdown", unlock);
-      window.removeEventListener("touchstart", unlock);
-    };
-  }, []);
+  // Phòng khi Scanner được dùng ngoài AppShell — đảm bảo listener mở khoá audio có gắn
+  useEffect(() => initBeepUnlock(), []);
 
   // Nạp engine wasm — lỗi thì hiện rõ thay vì im lặng
   useEffect(() => {
