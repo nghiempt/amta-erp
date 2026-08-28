@@ -200,9 +200,9 @@ function ReportErrorModal({ order, onClose }: { order: OrderLite; onClose: () =>
             onChange={(e) => setStage(e.target.value as Stage)}
             className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 outline-none focus:border-amber-400 bg-white text-sm"
           >
-            {(["ky_thuat", "in", "ep", "gia_cong", "dong_goi"] as Stage[]).map((s) => (
+            {(["created", "ky_thuat", "in", "ep", "gia_cong", "dong_goi"] as Stage[]).map((s) => (
               <option key={s} value={s}>
-                {STAGE_LABELS[s]}
+                {s === "created" ? "CSKH (sửa lại đơn)" : STAGE_LABELS[s]}
               </option>
             ))}
           </select>
@@ -224,7 +224,7 @@ export function OrderCard({ order }: { order: OrderLite }) {
   const overdue = isOverdue(order);
   const [reprint, setReprint] = useState<{ qr: string; barcode: string | null } | null>(null);
   const [reporting, setReporting] = useState(false);
-  const canReport = order.status !== "created" && order.status !== "cancelled";
+  const canReport = order.status !== "cancelled";
 
   async function openReprint() {
     const qr = await QRCode.toDataURL(order.code, { width: 480, margin: 1 });
@@ -276,12 +276,19 @@ export function OrderCard({ order }: { order: OrderLite }) {
             .filter((h) => h.byName)
             .map((h, i) => {
               const isReport = h.note?.startsWith("Báo lỗi");
+              if (isReport)
+                // hiện luôn nội dung lỗi để khỏi phải mở chi tiết đơn
+                return (
+                  <span key={i} className="basis-full text-red-600">
+                    <span className="font-semibold">⚠ {h.byName}</span>
+                    {h.at && <span className="text-red-400"> ({fmtShortTime(h.at)})</span>}
+                    <span className="font-medium"> — {h.note}</span>
+                  </span>
+                );
               return (
                 <span key={i}>
-                  <span className={isReport ? "text-red-500 font-semibold" : "text-slate-400"}>
-                    {isReport ? "⚠ Báo lỗi" : HISTORY_ROLE_LABELS[h.status] || h.status}:
-                  </span>{" "}
-                  <span className={`font-medium ${isReport ? "text-red-600" : "text-slate-600"}`}>{h.byName}</span>
+                  <span className="text-slate-400">{HISTORY_ROLE_LABELS[h.status] || h.status}:</span>{" "}
+                  <span className="font-medium text-slate-600">{h.byName}</span>
                   {h.at && <span className="text-slate-400"> ({fmtShortTime(h.at)})</span>}
                 </span>
               );

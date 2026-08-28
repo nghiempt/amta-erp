@@ -194,7 +194,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
       )}
 
       {/* Báo lỗi sản xuất — chuyển đơn về làm lại từ khâu bị lỗi */}
-      {order.status !== "cancelled" && order.status !== "created" && (
+      {order.status !== "cancelled" && (
         showReport ? (
           <div className="bg-white rounded-2xl border border-amber-300 p-4 space-y-3">
             <p className="text-sm font-medium text-slate-700">Báo lỗi sản xuất</p>
@@ -211,9 +211,9 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                 onChange={(e) => setReportStage(e.target.value as Stage)}
                 className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 outline-none focus:border-amber-400 bg-white"
               >
-                {(["ky_thuat", "in", "ep", "gia_cong", "dong_goi"] as Stage[]).map((s) => (
+                {(["created", "ky_thuat", "in", "ep", "gia_cong", "dong_goi"] as Stage[]).map((s) => (
                   <option key={s} value={s}>
-                    {STAGE_LABELS[s]}
+                    {s === "created" ? "CSKH (sửa lại đơn)" : STAGE_LABELS[s]}
                   </option>
                 ))}
               </select>

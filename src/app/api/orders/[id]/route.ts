@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import mongoose from "mongoose";
 import { dbConnect } from "@/lib/db";
 import { Order } from "@/models/Order";
+import { User } from "@/models/User";
 import { getSession } from "@/lib/auth";
 import {
   nextStage,
@@ -50,10 +51,13 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       return NextResponse.json({ error: "Đơn đã bị huỷ, không thể cập nhật" }, { status: 400 });
     const next = nextStage(order.status as OrderStatus);
     if (!next) return NextResponse.json({ error: "Đơn đã hoàn tất (Đã giao)" }, { status: 400 });
-    if (STAGE_ROLES.has(user.role) && user.role !== next) {
+    // Lấy role mới nhất từ DB — token JWT sống 7 ngày có thể còn ghi role cũ
+    const dbUser = await User.findById(user.id).select("role").lean<{ role?: string }>();
+    const role = dbUser?.role || user.role;
+    if (STAGE_ROLES.has(role) && role !== next) {
       return NextResponse.json(
         {
-          error: `Đơn này đang "${STATUS_DISPLAY_LABELS[order.status as OrderStatus]}" — bạn (khâu ${STAGE_LABELS[user.role as Stage]}) không quét được`,
+          error: `Đơn này đang "${STATUS_DISPLAY_LABELS[order.status as OrderStatus]}" — bạn (khâu ${STAGE_LABELS[role as Stage]}) không quét được`,
         },
         { status: 403 }
       );
@@ -88,10 +92,12 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       return NextResponse.json({ error: "Đơn đã bị huỷ, không thể cập nhật" }, { status: 400 });
     const target = body.targetStage as Stage;
     const idx = STAGES.indexOf(target);
-    if (idx < 1)
+    if (idx < 0 || target === "da_giao")
       return NextResponse.json({ error: "Khâu làm lại không hợp lệ" }, { status: 400 });
-    // status = khâu ngay trước target → đơn hiển thị "Chờ <target>"
-    const revertTo = STAGES[idx - 1];
+    // status = khâu ngay trước target → đơn hiển thị "Chờ <target>".
+    // target = created: báo về CSKH sửa lại đơn, status giữ "created" (Chờ Kỹ thuật)
+    const revertTo = STAGES[Math.max(0, idx - 1)];
+    const targetLabel = target === "created" ? "CSKH" : STAGE_LABELS[target];
     order.status = revertTo;
     order.statusChangedAt = new Date();
     order.history.push({
@@ -99,10 +105,10 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       at: new Date(),
       byName: user.name,
       byId: user.id,
-      note: `Báo lỗi: ${body.reason || "không rõ"} — làm lại từ khâu ${STAGE_LABELS[target]}`,
+      note: `Báo lỗi: ${body.reason || "không rõ"} — làm lại từ khâu ${targetLabel}`,
     });
     await order.save();
-    return NextResponse.json({ order, message: `Đã chuyển đơn về làm lại từ khâu "${STAGE_LABELS[target]}"` });
+    return NextResponse.json({ order, message: `Đã chuyển đơn về làm lại từ khâu "${targetLabel}"` });
   }
 
   if (action === "update") {
