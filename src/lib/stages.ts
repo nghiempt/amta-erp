@@ -74,10 +74,17 @@ export function revertOptions(status: OrderStatus): Stage[] {
   return REVERTABLE_STATUSES.filter((s) => STAGES.indexOf(s) < i);
 }
 
-// Role theo khâu có được thao tác (quét / báo lỗi) đơn này không?
+// Role có được thao tác (quét / báo lỗi / xác nhận sửa) đơn này không?
+// Role nào chỉ đụng được đơn đang chờ đúng khâu mình — kể cả CSKH (chỉ đơn "Chờ CSKH")
 export function canActOnOrder(role: string, status: OrderStatus): boolean {
-  if (!STAGE_ROLES.has(role)) return true; // admin, cskh, staff chung
+  if (role === "cskh") return status === "cho_cskh";
+  if (!STAGE_ROLES.has(role)) return true; // admin, staff chung
   return nextStage(status) === role;
+}
+
+export function roleLabel(role: string): string {
+  if (role === "cskh") return "CSKH";
+  return STAGE_LABELS[role as Stage] || role;
 }
 
 export function nextStage(status: OrderStatus): Stage | null {

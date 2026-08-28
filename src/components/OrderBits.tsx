@@ -11,7 +11,7 @@ import {
   type OrderStatus,
   type Stage,
 } from "@/lib/stages";
-import { Clock, AlertTriangle, Printer, X, Loader2 } from "lucide-react";
+import { Clock, AlertTriangle, Printer, X, Loader2, CheckCircle2 } from "lucide-react";
 
 export interface OrderLite {
   _id: string;
@@ -234,11 +234,32 @@ export function OrderCard({ order, viewerRole }: { order: OrderLite; viewerRole?
   const overdue = isOverdue(order);
   const [reprint, setReprint] = useState<{ qr: string; barcode: string | null } | null>(null);
   const [reporting, setReporting] = useState(false);
-  // Báo lỗi: đơn còn khâu để đá về + role theo khâu chỉ báo được đơn đang chờ khâu mình
-  const canReport =
-    order.status !== "cancelled" &&
-    revertOptions(order.status).length > 0 &&
-    (!viewerRole || canActOnOrder(viewerRole, order.status));
+  const [fixing, setFixing] = useState(false);
+  // Role nào chỉ thao tác được đơn đang chờ đúng khâu mình (CSKH → đơn "Chờ CSKH")
+  const roleCanAct = !viewerRole || canActOnOrder(viewerRole, order.status);
+  // Báo lỗi: đơn còn khâu để đá về + đúng role
+  const canReport = order.status !== "cancelled" && revertOptions(order.status).length > 0 && roleCanAct;
+  // Đơn đang bị báo lỗi = entry cuối trong lịch sử là báo lỗi → đúng role thì hiện "Đã sửa lỗi"
+  const lastEntry = order.history?.[order.history.length - 1];
+  const isReported = order.status !== "cancelled" && !!lastEntry?.note?.startsWith("Báo lỗi");
+  const canMarkFixed = isReported && roleCanAct;
+
+  // Xác nhận đã sửa lỗi → chuyển sang khâu tuần tự kế tiếp (advance)
+  async function markFixed() {
+    setFixing(true);
+    const res = await fetch(`/api/orders/${order._id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "advance", note: "Đã sửa lỗi" }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      alert(data.error || "Có lỗi xảy ra");
+      setFixing(false);
+      return;
+    }
+    window.location.reload();
+  }
 
   async function openReprint() {
     const qr = await QRCode.toDataURL(order.code, { width: 480, margin: 1 });
@@ -324,6 +345,16 @@ export function OrderCard({ order, viewerRole }: { order: OrderLite; viewerRole?
           </span>
         )}
         <span className="ml-auto inline-flex items-center gap-1.5">
+          {canMarkFixed && (
+            <button
+              onClick={markFixed}
+              disabled={fixing}
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 font-semibold active:scale-95 transition disabled:opacity-60"
+            >
+              {fixing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}{" "}
+              Đã sửa lỗi
+            </button>
+          )}
           {canReport && (
             <button
               onClick={() => setReporting(true)}

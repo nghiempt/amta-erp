@@ -190,7 +190,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
       </div>
 
       {/* Actions */}
-      {next && (
+      {next && canActOnOrder(role, order.status) && (
         <button
           onClick={() => patch({ action: "advance" })}
           disabled={busy}

@@ -8,9 +8,9 @@ import {
   nextStage,
   STAGE_LABELS,
   STATUS_DISPLAY_LABELS,
-  STAGE_ROLES,
   revertOptions,
   canActOnOrder,
+  roleLabel,
   type OrderStatus,
   type Stage,
 } from "@/lib/stages";
@@ -54,10 +54,10 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       return NextResponse.json({ error: "Đơn đã bị huỷ, không thể cập nhật" }, { status: 400 });
     const next = nextStage(order.status as OrderStatus);
     if (!next) return NextResponse.json({ error: "Đơn đã hoàn tất (Đã giao)" }, { status: 400 });
-    if (STAGE_ROLES.has(role) && role !== next) {
+    if (!canActOnOrder(role, order.status as OrderStatus)) {
       return NextResponse.json(
         {
-          error: `Đơn này đang "${STATUS_DISPLAY_LABELS[order.status as OrderStatus]}" — bạn (khâu ${STAGE_LABELS[role as Stage]}) không quét được`,
+          error: `Đơn này đang "${STATUS_DISPLAY_LABELS[order.status as OrderStatus]}" — bạn (khâu ${roleLabel(role)}) không quét được`,
         },
         { status: 403 }
       );
@@ -94,7 +94,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     if (!canActOnOrder(role, order.status as OrderStatus)) {
       return NextResponse.json(
         {
-          error: `Đơn này đang "${STATUS_DISPLAY_LABELS[order.status as OrderStatus]}" — bạn (khâu ${STAGE_LABELS[role as Stage]}) không báo lỗi được`,
+          error: `Đơn này đang "${STATUS_DISPLAY_LABELS[order.status as OrderStatus]}" — bạn (khâu ${roleLabel(role)}) không báo lỗi được`,
         },
         { status: 403 }
       );
