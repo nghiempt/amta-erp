@@ -69,5 +69,7 @@ const OrderSchema = new Schema<IOrder>(
 
 OrderSchema.index({ name: "text", sourceOrderId: "text", customerName: "text" });
 OrderSchema.index({ createdAt: -1 });
+OrderSchema.index({ statusChangedAt: -1 }); // đơn trễ, đơn chờ lâu nhất, chờ giao theo khoảng
+OrderSchema.index({ "history.status": 1, "history.at": 1 }); // thống kê đóng gói/giao theo khoảng ngày
 
 export const Order = models.Order || model<IOrder>("Order", OrderSchema);

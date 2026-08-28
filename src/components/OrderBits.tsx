@@ -363,44 +363,49 @@ export function OrderCard({ order, viewerRole }: { order: OrderLite; viewerRole?
         </div>
         <StatusBadge status={order.status} />
       </div>
-      {/* Ai đã tham gia quy trình — để khi lỗi biết ai thực hiện khâu đó */}
-      {order.history && order.history.length > 0 && (
-        <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-2.5 text-xs text-slate-500">
-          {order.history
-            .filter((h) => h.byName)
-            .map((h, i) => {
-              const isReport = h.note?.startsWith("Báo lỗi");
-              if (isReport)
-                // hiện luôn nội dung lỗi để khỏi phải mở chi tiết đơn
-                return (
-                  <span key={i} className="basis-full text-red-600">
-                    <span className="font-semibold">⚠ {h.byName}</span>
-                    {h.at && <span className="text-red-400"> ({fmtShortTime(h.at)})</span>}
-                    <span className="font-medium"> — {h.note}</span>
-                  </span>
-                );
-              return (
-                <span key={i}>
-                  <span className="text-slate-400">{HISTORY_ROLE_LABELS[h.status] || h.status}:</span>{" "}
+      {/* Quy trình: ai làm khâu nào lúc nào — 1 dòng xám gọn */}
+      {(order.history?.filter((h) => h.byName && !h.note?.startsWith("Báo lỗi")).length ?? 0) > 0 && (
+        <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 mt-2.5 text-[11px] leading-4 text-slate-500">
+          {order
+            .history!.filter((h) => h.byName && !h.note?.startsWith("Báo lỗi"))
+            .map((h, i) => (
+              <span key={i} className="inline-flex items-center gap-1.5 whitespace-nowrap">
+                {i > 0 && <span className="text-slate-300">›</span>}
+                <span>
+                  <span className="text-slate-400">{HISTORY_ROLE_LABELS[h.status] || h.status}</span>{" "}
                   <span className="font-medium text-slate-600">{h.byName}</span>
-                  {h.at && <span className="text-slate-400"> ({fmtShortTime(h.at)})</span>}
+                  {h.at && <span className="text-slate-400"> · {fmtShortTime(h.at)}</span>}
                 </span>
-              );
-            })}
+              </span>
+            ))}
         </div>
       )}
+
+      {/* Các lần báo lỗi — khối đỏ riêng, đầy đủ nội dung */}
+      {order.history
+        ?.filter((h) => h.byName && h.note?.startsWith("Báo lỗi"))
+        .map((h, i) => (
+          <p key={i} className="mt-2 text-xs leading-5 text-red-700 bg-red-50 rounded-xl px-3 py-2">
+            <span className="font-semibold">
+              ⚠ {h.byName}
+              {h.at && <span className="font-normal text-red-400"> · {fmtShortTime(h.at)}</span>}
+            </span>
+            <br />
+            {h.note}
+          </p>
+        ))}
       {order.note && (
         <p className="mt-2.5 text-sm font-semibold text-amber-800 bg-amber-50 border border-dashed border-amber-400 rounded-xl px-3 py-2">
           {order.note}
         </p>
       )}
-      <div className="flex items-center gap-3 mt-2.5 text-xs text-slate-400">
-        <span className="inline-flex items-center gap-1">
+      <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center flex-wrap gap-x-3 gap-y-2 text-xs text-slate-400">
+        <span className="inline-flex items-center gap-1 whitespace-nowrap">
           <Clock className="w-3.5 h-3.5" /> {timeAgo(order.statusChangedAt)}
         </span>
         {overdue && (
-          <span className="inline-flex items-center gap-1 text-red-600 font-semibold">
-            <AlertTriangle className="w-3.5 h-3.5" /> Quá 30 phút
+          <span className="inline-flex items-center gap-1 text-red-600 font-semibold whitespace-nowrap">
+            <AlertTriangle className="w-3.5 h-3.5" /> Quá 30p
           </span>
         )}
         <span className="ml-auto inline-flex items-center gap-1.5">
