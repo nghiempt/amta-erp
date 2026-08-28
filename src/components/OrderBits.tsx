@@ -230,11 +230,70 @@ function ReportErrorModal({ order, onClose }: { order: OrderLite; onClose: () =>
   );
 }
 
+// Popup huỷ đơn — chỉ Quản lý & CSKH
+function CancelModal({ order, onClose }: { order: OrderLite; onClose: () => void }) {
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  async function submit() {
+    setBusy(true);
+    setError("");
+    const res = await fetch(`/api/orders/${order._id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "cancel", reason }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setError(data.error || "Có lỗi xảy ra");
+      setBusy(false);
+      return;
+    }
+    window.location.reload();
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl w-full max-w-sm p-5 space-y-3 relative" onClick={(e) => e.stopPropagation()}>
+        <button onClick={onClose} className="absolute top-3 right-3 p-1.5 text-slate-400 hover:text-slate-600">
+          <X className="w-5 h-5" />
+        </button>
+        <p className="font-semibold text-slate-900">Huỷ đơn?</p>
+        <p className="text-xs text-slate-500 -mt-2">{order.name}</p>
+        <input
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          placeholder="Lý do huỷ. VD: Khách huỷ đơn"
+          className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 outline-none focus:border-red-400 text-sm"
+        />
+        {error && <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>}
+        <div className="flex gap-2">
+          <button onClick={onClose} className="flex-1 py-2.5 rounded-xl bg-slate-100 text-sm font-medium text-slate-600">
+            Không
+          </button>
+          <button
+            onClick={submit}
+            disabled={busy}
+            className="flex-1 py-2.5 rounded-xl bg-red-600 text-white text-sm font-semibold disabled:opacity-60 flex items-center justify-center gap-2"
+          >
+            {busy && <Loader2 className="w-4 h-4 animate-spin" />} Xác nhận huỷ
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function OrderCard({ order, viewerRole }: { order: OrderLite; viewerRole?: string }) {
   const overdue = isOverdue(order);
   const [reprint, setReprint] = useState<{ qr: string; barcode: string | null } | null>(null);
   const [reporting, setReporting] = useState(false);
   const [fixing, setFixing] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  // Huỷ đơn: chỉ Quản lý & CSKH, mọi stage trừ đơn đã huỷ (viewerRole thiếu = dashboard admin)
+  const canCancel =
+    order.status !== "cancelled" && (!viewerRole || viewerRole === "admin" || viewerRole === "cskh");
   // Role nào chỉ thao tác được đơn đang chờ đúng khâu mình (CSKH → đơn "Chờ CSKH")
   const roleCanAct = !viewerRole || canActOnOrder(viewerRole, order.status);
   // Báo lỗi: đơn còn khâu để đá về + đúng role
@@ -345,6 +404,14 @@ export function OrderCard({ order, viewerRole }: { order: OrderLite; viewerRole?
           </span>
         )}
         <span className="ml-auto inline-flex items-center gap-1.5">
+          {canCancel && (
+            <button
+              onClick={() => setCancelling(true)}
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-red-50 text-red-600 font-semibold active:scale-95 transition"
+            >
+              <X className="w-3.5 h-3.5" /> Huỷ
+            </button>
+          )}
           {canMarkFixed && (
             <button
               onClick={markFixed}
@@ -377,6 +444,7 @@ export function OrderCard({ order, viewerRole }: { order: OrderLite; viewerRole?
         <ReprintModal order={order} qr={reprint.qr} barcode={reprint.barcode} onClose={() => setReprint(null)} />
       )}
       {reporting && <ReportErrorModal order={order} onClose={() => setReporting(false)} />}
+      {cancelling && <CancelModal order={order} onClose={() => setCancelling(false)} />}
     </div>
   );
 }

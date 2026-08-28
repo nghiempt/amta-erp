@@ -54,8 +54,9 @@ export default function RangeStats() {
     { label: "Đã giao", value: data?.daGiao, icon: PackageCheck, color: "text-emerald-600 bg-emerald-50" },
   ];
 
+  // min-w-0 + flex-1: input date có min-width mặc định rất lớn, dễ tràn màn hình mobile
   const dateCls =
-    "px-3 py-2 rounded-xl bg-[#fbeee7] text-sm text-slate-700 border-2 border-transparent focus:border-[#f1592a] focus:bg-white outline-none transition";
+    "flex-1 min-w-0 w-full px-3 py-2 rounded-xl bg-[#fbeee7] text-sm text-slate-700 border-2 border-transparent focus:border-[#f1592a] focus:bg-white outline-none transition";
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200 p-4 md:p-5 space-y-3">
@@ -81,7 +82,7 @@ export default function RangeStats() {
             {p.label}
           </button>
         ))}
-        <span className="inline-flex items-center gap-1.5 text-sm text-slate-500">
+        <span className="flex items-center gap-1.5 text-sm text-slate-500 w-full sm:w-auto sm:flex-1 min-w-0">
           <input
             type="date"
             value={range.from}
