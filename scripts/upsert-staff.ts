@@ -14,6 +14,7 @@ async function main() {
   await mongoose.connect(MONGODB_URI);
   const hash = bcrypt.hashSync("123456", 10);
   const accounts = [
+    { username: "quanly", name: "Quản lý", role: "admin" },
     { username: "kythuat", name: "NV Kỹ thuật", role: "ky_thuat" },
     { username: "in", name: "NV In", role: "in" },
     { username: "ep", name: "NV Ép", role: "ep" },

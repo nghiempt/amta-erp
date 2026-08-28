@@ -258,7 +258,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
         )
       )}
 
-      {(role === "admin" || role === "cskh") && order.status !== "cancelled" && order.status !== "da_giao" && (
+      {(role === "admin" || role === "cskh") && order.status !== "cancelled" && (
         confirmCancel ? (
           <div className="bg-white rounded-2xl border border-red-200 p-4 space-y-3">
             <p className="text-sm font-medium text-slate-700">Lý do huỷ đơn?</p>

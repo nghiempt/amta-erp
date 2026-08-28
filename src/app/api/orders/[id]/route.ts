@@ -73,7 +73,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   }
 
   if (action === "cancel") {
-    if (user.role !== "admin" && user.role !== "cskh")
+    if (role !== "admin" && role !== "cskh")
       return NextResponse.json({ error: "Chỉ Quản lý hoặc CSKH được huỷ đơn" }, { status: 403 });
     if (order.status === "cancelled")
       return NextResponse.json({ error: "Đơn đã huỷ rồi" }, { status: 400 });

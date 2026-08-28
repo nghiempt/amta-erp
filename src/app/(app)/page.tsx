@@ -5,6 +5,7 @@ import { dbConnect } from "@/lib/db";
 import { Order } from "@/models/Order";
 import { STATUS_DISPLAY_LABELS, STAGE_COLORS, type OrderStatus } from "@/lib/stages";
 import { OrderCard, type OrderLite } from "@/components/OrderBits";
+import RangeStats from "@/components/RangeStats";
 import { fmtVnd } from "@/lib/format";
 import {
   TrendingUp,
@@ -76,6 +77,9 @@ export default async function DashboardPage() {
           </div>
         ))}
       </div>
+
+      {/* Số liệu theo khoảng thời gian: hôm nay / hôm qua / 7 ngày / tuỳ chọn */}
+      <RangeStats />
 
       <div className="bg-white rounded-2xl border border-slate-200 p-4 md:p-5">
         <h2 className="font-semibold text-slate-900 mb-3">Theo khâu</h2>
