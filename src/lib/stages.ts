@@ -1,4 +1,5 @@
 export const STAGES = [
+  "cho_cskh", // đơn bị báo lỗi đá về CSKH sửa lại — không nằm trong luồng tạo đơn mặc định
   "created",
   "ky_thuat",
   "in",
@@ -12,7 +13,8 @@ export type Stage = (typeof STAGES)[number];
 export type OrderStatus = Stage | "cancelled";
 
 export const STAGE_LABELS: Record<OrderStatus, string> = {
-  created: "Mới tạo",
+  cho_cskh: "CSKH sửa đơn",
+  created: "CSKH",
   ky_thuat: "Kỹ thuật",
   in: "In",
   ep: "Ép",
@@ -25,6 +27,7 @@ export const STAGE_LABELS: Record<OrderStatus, string> = {
 // Nhãn hiển thị theo "ai cần làm tiếp" — status X nghĩa là khâu X đã quét xong,
 // nên đơn đang chờ khâu kế tiếp xử lý
 export const STATUS_DISPLAY_LABELS: Record<OrderStatus, string> = {
+  cho_cskh: "Chờ CSKH",
   created: "Chờ Kỹ thuật",
   ky_thuat: "Chờ In",
   in: "Chờ Ép",
@@ -37,6 +40,7 @@ export const STATUS_DISPLAY_LABELS: Record<OrderStatus, string> = {
 
 // minutes expected for each stage before it's considered overdue
 export const STAGE_SLA_MIN: Partial<Record<OrderStatus, number>> = {
+  cho_cskh: 30,
   created: 30,
   ky_thuat: 30,
   in: 30,
@@ -46,6 +50,7 @@ export const STAGE_SLA_MIN: Partial<Record<OrderStatus, number>> = {
 };
 
 export const STAGE_COLORS: Record<OrderStatus, { bg: string; text: string; dot: string }> = {
+  cho_cskh: { bg: "bg-rose-100", text: "text-rose-700", dot: "bg-rose-500" },
   created: { bg: "bg-slate-100", text: "text-slate-700", dot: "bg-slate-400" },
   ky_thuat: { bg: "bg-violet-100", text: "text-violet-700", dot: "bg-violet-500" },
   in: { bg: "bg-blue-100", text: "text-blue-700", dot: "bg-blue-500" },
@@ -55,6 +60,25 @@ export const STAGE_COLORS: Record<OrderStatus, { bg: string; text: string; dot: 
   da_giao: { bg: "bg-emerald-100", text: "text-emerald-700", dot: "bg-emerald-500" },
   cancelled: { bg: "bg-red-100", text: "text-red-700", dot: "bg-red-500" },
 };
+
+// Các role gắn với 1 khâu — chỉ được quét / báo lỗi đơn đang chờ đúng khâu mình
+export const STAGE_ROLES = new Set<string>(["ky_thuat", "in", "ep", "gia_cong", "dong_goi", "da_giao"]);
+
+// Các trạng thái có thể đá đơn về khi báo lỗi (không đá về da_giao/dong_goi-hoàn tất)
+export const REVERTABLE_STATUSES: Stage[] = ["cho_cskh", "created", "ky_thuat", "in", "ep", "gia_cong"];
+
+// Báo lỗi chỉ được đá về các trạng thái ĐỨNG TRƯỚC trạng thái hiện tại
+export function revertOptions(status: OrderStatus): Stage[] {
+  const i = STAGES.indexOf(status as Stage);
+  if (i < 0) return []; // cancelled
+  return REVERTABLE_STATUSES.filter((s) => STAGES.indexOf(s) < i);
+}
+
+// Role theo khâu có được thao tác (quét / báo lỗi) đơn này không?
+export function canActOnOrder(role: string, status: OrderStatus): boolean {
+  if (!STAGE_ROLES.has(role)) return true; // admin, cskh, staff chung
+  return nextStage(status) === role;
+}
 
 export function nextStage(status: OrderStatus): Stage | null {
   const i = STAGES.indexOf(status as Stage);

@@ -8,7 +8,7 @@ import { STATUS_DISPLAY_LABELS, type OrderStatus } from "@/lib/stages";
 
 const FILTERS: { value: string; label: string }[] = [
   { value: "", label: "Tất cả" },
-  ...(["created", "ky_thuat", "in", "ep", "gia_cong", "dong_goi", "da_giao", "cancelled"] as OrderStatus[]).map(
+  ...(["cho_cskh", "created", "ky_thuat", "in", "ep", "gia_cong", "dong_goi", "da_giao", "cancelled"] as OrderStatus[]).map(
     (s) => ({ value: s, label: STATUS_DISPLAY_LABELS[s] })
   ),
 ];
@@ -23,7 +23,15 @@ function OrdersList() {
   const [page, setPage] = useState(1);
   const [pages, setPages] = useState(1);
   const [loading, setLoading] = useState(true);
+  const [viewerRole, setViewerRole] = useState<string | undefined>(undefined);
   const debounce = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  useEffect(() => {
+    fetch("/api/auth/me")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => d && setViewerRole(d.user.role))
+      .catch(() => {});
+  }, []);
 
   const load = useCallback(async (q: string, status: string, page: number, append = false) => {
     setLoading(true);
@@ -108,7 +116,7 @@ function OrdersList() {
       ) : (
         <div className="space-y-2.5 md:grid md:grid-cols-2 md:gap-3 md:space-y-0">
           {items.map((o) => (
-            <OrderCard key={o._id} order={o} />
+            <OrderCard key={o._id} order={o} viewerRole={viewerRole} />
           ))}
         </div>
       )}

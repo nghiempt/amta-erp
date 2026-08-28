@@ -13,7 +13,15 @@ import {
   User as UserIcon,
 } from "lucide-react";
 import { StatusBadge, SourceBadge, fmtVnd, timeAgo, isOverdue } from "@/components/OrderBits";
-import { STAGE_LABELS, nextStage, type OrderStatus, type Stage } from "@/lib/stages";
+import {
+  STAGE_LABELS,
+  STATUS_DISPLAY_LABELS,
+  nextStage,
+  revertOptions,
+  canActOnOrder,
+  type OrderStatus,
+  type Stage,
+} from "@/lib/stages";
 
 interface HistoryEntry {
   status: OrderStatus;
@@ -53,7 +61,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
   const [cancelReason, setCancelReason] = useState("");
   const [showReport, setShowReport] = useState(false);
   const [reportReason, setReportReason] = useState("");
-  const [reportStage, setReportStage] = useState<Stage>("in");
+  const [reportStage, setReportStage] = useState<Stage | "">("");
 
   const load = useCallback(async () => {
     const [oRes, meRes] = await Promise.all([fetch(`/api/orders/${id}`), fetch("/api/auth/me")]);
@@ -193,8 +201,11 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
         </button>
       )}
 
-      {/* Báo lỗi sản xuất — chuyển đơn về làm lại từ khâu bị lỗi */}
-      {order.status !== "cancelled" && (
+      {/* Báo lỗi sản xuất — đá đơn về khâu đứng trước.
+          Role theo khâu chỉ báo được đơn đang chờ đúng khâu mình */}
+      {order.status !== "cancelled" &&
+        revertOptions(order.status).length > 0 &&
+        canActOnOrder(role, order.status) && (
         showReport ? (
           <div className="bg-white rounded-2xl border border-amber-300 p-4 space-y-3">
             <p className="text-sm font-medium text-slate-700">Báo lỗi sản xuất</p>
@@ -205,15 +216,15 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
               className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 outline-none focus:border-amber-400"
             />
             <div>
-              <label className="text-xs text-slate-500 mb-1 block">Làm lại từ khâu</label>
+              <label className="text-xs text-slate-500 mb-1 block">Chuyển đơn về</label>
               <select
-                value={reportStage}
+                value={reportStage || revertOptions(order.status).at(-1)}
                 onChange={(e) => setReportStage(e.target.value as Stage)}
                 className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 outline-none focus:border-amber-400 bg-white"
               >
-                {(["created", "ky_thuat", "in", "ep", "gia_cong", "dong_goi"] as Stage[]).map((s) => (
+                {revertOptions(order.status).map((s) => (
                   <option key={s} value={s}>
-                    {s === "created" ? "CSKH (sửa lại đơn)" : STAGE_LABELS[s]}
+                    {STATUS_DISPLAY_LABELS[s]}
                   </option>
                 ))}
               </select>
@@ -223,7 +234,13 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                 Không
               </button>
               <button
-                onClick={() => patch({ action: "rework", targetStage: reportStage, reason: reportReason })}
+                onClick={() =>
+                  patch({
+                    action: "rework",
+                    targetStage: reportStage || revertOptions(order.status).at(-1),
+                    reason: reportReason,
+                  })
+                }
                 disabled={busy || !reportReason.trim()}
                 className="flex-1 py-2.5 rounded-xl bg-amber-500 text-white text-sm font-semibold disabled:opacity-60"
               >

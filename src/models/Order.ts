@@ -54,7 +54,7 @@ const OrderSchema = new Schema<IOrder>(
     imageUrl: String,
     status: {
       type: String,
-      enum: ["created", "ky_thuat", "in", "ep", "gia_cong", "dong_goi", "da_giao", "cancelled"],
+      enum: ["cho_cskh", "created", "ky_thuat", "in", "ep", "gia_cong", "dong_goi", "da_giao", "cancelled"],
       default: "created",
       index: true,
     },

@@ -3,7 +3,14 @@
 import { useState } from "react";
 import QRCode from "qrcode";
 import JsBarcode from "jsbarcode";
-import { STATUS_DISPLAY_LABELS, STAGE_COLORS, STAGE_LABELS, type OrderStatus, type Stage } from "@/lib/stages";
+import {
+  STATUS_DISPLAY_LABELS,
+  STAGE_COLORS,
+  revertOptions,
+  canActOnOrder,
+  type OrderStatus,
+  type Stage,
+} from "@/lib/stages";
 import { Clock, AlertTriangle, Printer, X, Loader2 } from "lucide-react";
 
 export interface OrderLite {
@@ -29,6 +36,7 @@ const fmtShortTime = (iso?: string) =>
 
 // Ai làm khâu nào — entry history status X = người đã quét/thực hiện khâu X
 const HISTORY_ROLE_LABELS: Record<OrderStatus, string> = {
+  cho_cskh: "CSKH",
   created: "CSKH",
   ky_thuat: "Kỹ thuật",
   in: "In",
@@ -153,8 +161,10 @@ function ReprintModal({
 
 // Popup báo lỗi sản xuất ngay trên card đơn — chuyển đơn về làm lại từ khâu bị lỗi
 function ReportErrorModal({ order, onClose }: { order: OrderLite; onClose: () => void }) {
+  const options = revertOptions(order.status);
   const [reason, setReason] = useState("");
-  const [stage, setStage] = useState<Stage>("in");
+  // mặc định đá về khâu ngay trước khâu hiện tại
+  const [stage, setStage] = useState<Stage>(options[options.length - 1] ?? "created");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -194,15 +204,15 @@ function ReportErrorModal({ order, onClose }: { order: OrderLite; onClose: () =>
           className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 outline-none focus:border-amber-400 text-sm"
         />
         <div>
-          <label className="text-xs text-slate-500 mb-1 block">Làm lại từ khâu</label>
+          <label className="text-xs text-slate-500 mb-1 block">Chuyển đơn về</label>
           <select
             value={stage}
             onChange={(e) => setStage(e.target.value as Stage)}
             className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 outline-none focus:border-amber-400 bg-white text-sm"
           >
-            {(["created", "ky_thuat", "in", "ep", "gia_cong", "dong_goi"] as Stage[]).map((s) => (
+            {options.map((s) => (
               <option key={s} value={s}>
-                {s === "created" ? "CSKH (sửa lại đơn)" : STAGE_LABELS[s]}
+                {STATUS_DISPLAY_LABELS[s]}
               </option>
             ))}
           </select>
@@ -220,11 +230,15 @@ function ReportErrorModal({ order, onClose }: { order: OrderLite; onClose: () =>
   );
 }
 
-export function OrderCard({ order }: { order: OrderLite }) {
+export function OrderCard({ order, viewerRole }: { order: OrderLite; viewerRole?: string }) {
   const overdue = isOverdue(order);
   const [reprint, setReprint] = useState<{ qr: string; barcode: string | null } | null>(null);
   const [reporting, setReporting] = useState(false);
-  const canReport = order.status !== "cancelled";
+  // Báo lỗi: đơn còn khâu để đá về + role theo khâu chỉ báo được đơn đang chờ khâu mình
+  const canReport =
+    order.status !== "cancelled" &&
+    revertOptions(order.status).length > 0 &&
+    (!viewerRole || canActOnOrder(viewerRole, order.status));
 
   async function openReprint() {
     const qr = await QRCode.toDataURL(order.code, { width: 480, margin: 1 });

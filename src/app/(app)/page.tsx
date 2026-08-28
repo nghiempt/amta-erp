@@ -47,7 +47,7 @@ export default async function DashboardPage() {
 
   const counts: Record<string, number> = {};
   for (const s of byStatus) counts[s._id as string] = s.count;
-  const pipeline: OrderStatus[] = ["created", "ky_thuat", "in", "ep", "gia_cong", "dong_goi", "da_giao", "cancelled"];
+  const pipeline: OrderStatus[] = ["cho_cskh", "created", "ky_thuat", "in", "ep", "gia_cong", "dong_goi", "da_giao", "cancelled"];
 
   const stats = [
     { label: "Đơn tạo hôm nay", value: todayCreated, icon: PackagePlus, color: "text-indigo-600 bg-indigo-50" },
