@@ -21,6 +21,7 @@ interface CreatedOrder {
   sourceOrderId: string;
   name: string;
   price: number;
+  customerName?: string;
   note?: string;
   qr: string;
 }
@@ -84,6 +85,7 @@ export default function NewOrderPage() {
         sourceOrderId: data.order.sourceOrderId,
         name: data.order.name,
         price: data.order.price,
+        customerName: data.order.customerName,
         note: data.order.note,
         qr,
       });
@@ -115,6 +117,7 @@ export default function NewOrderPage() {
       <div class="src">${created.code}</div>
       <img src="${created.qr}" alt="QR"/>
       <div class="name">${created.name}</div>
+      ${created.customerName ? `<div class="price">Khách: ${created.customerName}</div>` : ""}
       <div class="price">${created.price.toLocaleString("vi-VN")} đ</div>
       ${created.note ? `<div class="note">📝 ${created.note}</div>` : ""}
       <script>window.onload=()=>window.print()</script>
@@ -138,6 +141,9 @@ export default function NewOrderPage() {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={created.qr} alt="QR" className="w-48 h-48 mx-auto my-3" />
           <p className="font-semibold text-slate-900">{created.name}</p>
+          {created.customerName && (
+            <p className="text-sm text-slate-600 mt-0.5">Khách: {created.customerName}</p>
+          )}
           <p className="text-sm text-slate-600 mt-0.5">{created.price.toLocaleString("vi-VN")} đ</p>
           {created.note && (
             <p className="mt-3 text-sm font-semibold text-amber-800 bg-amber-50 border-2 border-dashed border-amber-400 rounded-xl px-3 py-2">

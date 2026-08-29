@@ -115,6 +115,7 @@ function ReprintModal({
       ${barcode ? `<img class="bar" src="${barcode}" alt="barcode"/>` : ""}
       <img src="${qr}" alt="QR"/>
       <div class="name">${order.name}</div>
+      ${order.customerName ? `<div class="price">Khách: ${order.customerName}</div>` : ""}
       <div class="price">${order.price.toLocaleString("vi-VN")} đ</div>
       ${order.note ? `<div class="note">📝 ${order.note}</div>` : ""}
       <script>window.onload=()=>window.print()</script>
@@ -143,6 +144,9 @@ function ReprintModal({
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={qr} alt="QR" className="w-44 h-44 mx-auto my-3" />
           <p className="font-semibold text-slate-900">{order.name}</p>
+          {order.customerName && (
+            <p className="text-sm text-slate-600 mt-0.5">Khách: {order.customerName}</p>
+          )}
           <p className="text-sm text-slate-600 mt-0.5">{order.price.toLocaleString("vi-VN")} đ</p>
           {order.note && (
             <p className="mt-3 text-sm font-semibold text-amber-800 bg-amber-50 border-2 border-dashed border-amber-400 rounded-xl px-3 py-2">
