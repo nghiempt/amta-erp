@@ -21,7 +21,7 @@ function OrdersList() {
   const [status, setStatus] = useState(sp.get("status") || "");
   const [range, setRange] = useState<{ from: string; to: string }>({ from: "", to: "" });
   const [activePreset, setActivePreset] = useState("Tất cả");
-  const [sort, setSort] = useState<"newest" | "oldest">("newest");
+  const [sort, setSort] = useState<"newest" | "oldest">("oldest");
   const [items, setItems] = useState<OrderLite[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);

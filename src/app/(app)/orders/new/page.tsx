@@ -242,7 +242,7 @@ export default function NewOrderPage() {
 
         <div>
           <label className="text-sm font-medium text-slate-700 mb-1.5 block">Tên đơn / sản phẩm *</label>
-          <input value={name} onChange={(e) => setName(e.target.value)} required placeholder="VD: Áo thun in hình mèo - size L" className={inputCls} />
+          <input value={name} onChange={(e) => setName(e.target.value)} required placeholder="VD: Khung bo viền bạc 15x21" className={inputCls} />
         </div>
 
         <div>
