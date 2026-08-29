@@ -1,8 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
-import { Loader2, Package, AlertTriangle, TrendingUp, ShieldAlert } from "lucide-react";
+import { Loader2, Package, TrendingUp, ShieldAlert } from "lucide-react";
 import { STAGE_COLORS, type OrderStatus } from "@/lib/stages";
 import { fmtVnd } from "@/lib/format";
 
@@ -101,7 +100,6 @@ export default function RangeStats() {
 
   const tiles = [
     { label: "Tổng đơn", value: data?.created, icon: Package, color: "text-indigo-600 bg-indigo-50" },
-    { label: "Đơn trễ", value: data?.overdue, icon: AlertTriangle, color: "text-red-600 bg-red-50", href: "/orders?status=overdue" },
     // đếm dồn số đơn có báo lỗi trong khoảng (kể cả đã sửa) — không link sang filter
     // "đang báo lỗi" của tab Đơn hàng vì hai con số khác ý nghĩa
     { label: "Đơn lỗi", value: data?.reported, icon: ShieldAlert, color: "text-amber-600 bg-amber-50" },
@@ -151,28 +149,16 @@ export default function RangeStats() {
       </div>
 
       {/* 4 chỉ số chính */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {tiles.map((t) => {
-          const inner = (
-            <>
-              <div className={`w-9 h-9 rounded-xl flex items-center justify-center mb-2.5 ${t.color}`}>
-                <t.icon className="w-5 h-5" />
-              </div>
-              <p className="text-lg font-bold text-slate-900 leading-tight">{t.value ?? "—"}</p>
-              <p className="text-xs text-slate-500 mt-0.5">{t.label}</p>
-            </>
-          );
-          const cls = "block rounded-xl border border-slate-100 p-3.5";
-          return t.href ? (
-            <Link key={t.label} href={t.href} className={`${cls} active:scale-[0.98] transition`}>
-              {inner}
-            </Link>
-          ) : (
-            <div key={t.label} className={cls}>
-              {inner}
+      <div className="grid grid-cols-3 gap-3">
+        {tiles.map((t) => (
+          <div key={t.label} className="rounded-xl border border-slate-100 p-3.5">
+            <div className={`w-9 h-9 rounded-xl flex items-center justify-center mb-2.5 ${t.color}`}>
+              <t.icon className="w-5 h-5" />
             </div>
-          );
-        })}
+            <p className="text-lg font-bold text-slate-900 leading-tight">{t.value ?? "—"}</p>
+            <p className="text-xs text-slate-500 mt-0.5">{t.label}</p>
+          </div>
+        ))}
       </div>
 
       {/* Mỗi khâu quét xong bao nhiêu đơn trong khoảng đang chọn */}
