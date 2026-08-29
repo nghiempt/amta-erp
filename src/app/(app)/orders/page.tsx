@@ -9,8 +9,6 @@ import { STATUS_DISPLAY_LABELS, type OrderStatus } from "@/lib/stages";
 
 const FILTERS: { value: string; label: string }[] = [
   { value: "", label: "Tất cả" },
-  { value: "reported", label: "⚠ Báo lỗi" },
-  { value: "overdue", label: "Trễ >30p" },
   ...(["cho_cskh", "created", "ky_thuat", "in", "ep", "gia_cong", "dong_goi", "da_giao", "cancelled"] as OrderStatus[]).map(
     (s) => ({ value: s, label: STATUS_DISPLAY_LABELS[s] })
   ),
