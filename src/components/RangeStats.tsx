@@ -102,7 +102,9 @@ export default function RangeStats() {
   const tiles = [
     { label: "Tổng đơn", value: data?.created, icon: Package, color: "text-indigo-600 bg-indigo-50" },
     { label: "Đơn trễ", value: data?.overdue, icon: AlertTriangle, color: "text-red-600 bg-red-50", href: "/orders?status=overdue" },
-    { label: "Đơn lỗi", value: data?.reported, icon: ShieldAlert, color: "text-amber-600 bg-amber-50", href: "/orders?status=reported" },
+    // đếm dồn số đơn có báo lỗi trong khoảng (kể cả đã sửa) — không link sang filter
+    // "đang báo lỗi" của tab Đơn hàng vì hai con số khác ý nghĩa
+    { label: "Đơn lỗi", value: data?.reported, icon: ShieldAlert, color: "text-amber-600 bg-amber-50" },
     { label: "Doanh thu", value: data ? fmtVnd(data.revenue) : undefined, icon: TrendingUp, color: "text-emerald-600 bg-emerald-50" },
   ];
 

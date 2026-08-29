@@ -27,22 +27,14 @@ export async function GET(req: NextRequest) {
         { $match: { createdAt: range, status: { $ne: "cancelled" } } },
         { $group: { _id: null, total: { $sum: { $multiply: ["$price", "$quantity"] } } } },
       ]),
-      // đơn trễ & đơn đang báo lỗi: số liệu hiện tại (không phụ thuộc khoảng ngày)
+      // đơn trễ: số liệu hiện tại (không phụ thuộc khoảng ngày)
       Order.countDocuments({
         status: { $nin: ["da_giao", "cancelled"] },
         statusChangedAt: { $lt: new Date(Date.now() - 30 * 60 * 1000) },
       }),
-      Order.countDocuments({
-        status: { $nin: ["da_giao", "cancelled"] },
-        $expr: {
-          $regexMatch: {
-            input: {
-              $ifNull: [{ $let: { vars: { l: { $arrayElemAt: ["$history", -1] } }, in: "$$l.note" } }, ""],
-            },
-            regex: "^Báo lỗi",
-          },
-        },
-      }),
+      // đơn lỗi: có ít nhất 1 lần báo lỗi trong khoảng — cộng dồn kể cả đã sửa xong
+      // (thống kê hiệu quả hoạt động, khác với filter "đang báo lỗi" ở tab Đơn hàng)
+      Order.countDocuments({ history: { $elemMatch: { at: range, note: /^Báo lỗi/ } } }),
       // mỗi khâu đã quét xong bao nhiêu đơn trong khoảng (đếm đơn, không đếm lượt;
       // bỏ qua entry báo lỗi vì đó không phải lượt quét hoàn thành khâu)
       Order.aggregate([
