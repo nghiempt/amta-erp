@@ -27,6 +27,7 @@ export interface OrderLite {
   statusChangedAt: string;
   createdAt: string;
   history?: { status: OrderStatus; byName: string; at?: string; note?: string }[];
+  cancelReason?: string;
 }
 
 const fmtShortTime = (iso?: string) =>
@@ -274,7 +275,7 @@ function CancelModal({ order, onClose }: { order: OrderLite; onClose: () => void
           </button>
           <button
             onClick={submit}
-            disabled={busy}
+            disabled={busy || !reason.trim()}
             className="flex-1 py-2.5 rounded-xl bg-red-600 text-white text-sm font-semibold disabled:opacity-60 flex items-center justify-center gap-2"
           >
             {busy && <Loader2 className="w-4 h-4 animate-spin" />} Xác nhận huỷ
@@ -291,13 +292,19 @@ export function OrderCard({ order, viewerRole }: { order: OrderLite; viewerRole?
   const [reporting, setReporting] = useState(false);
   const [fixing, setFixing] = useState(false);
   const [cancelling, setCancelling] = useState(false);
-  // Huỷ đơn: chỉ Quản lý & CSKH, mọi stage trừ đơn đã huỷ (viewerRole thiếu = dashboard admin)
+  // Huỷ đơn: chỉ Quản lý & CSKH, đơn chưa huỷ và chưa giao (viewerRole thiếu = dashboard admin)
   const canCancel =
-    order.status !== "cancelled" && (!viewerRole || viewerRole === "admin" || viewerRole === "cskh");
+    order.status !== "cancelled" &&
+    order.status !== "da_giao" &&
+    (!viewerRole || viewerRole === "admin" || viewerRole === "cskh");
   // Role nào chỉ thao tác được đơn đang chờ đúng khâu mình (CSKH → đơn "Chờ CSKH")
   const roleCanAct = !viewerRole || canActOnOrder(viewerRole, order.status);
-  // Báo lỗi: đơn còn khâu để đá về + đúng role
-  const canReport = order.status !== "cancelled" && revertOptions(order.status).length > 0 && roleCanAct;
+  // Báo lỗi: đơn chưa giao/chưa huỷ, còn khâu để đá về + đúng role
+  const canReport =
+    order.status !== "cancelled" &&
+    order.status !== "da_giao" &&
+    revertOptions(order.status).length > 0 &&
+    roleCanAct;
   // Đơn đang bị báo lỗi = entry cuối trong lịch sử là báo lỗi → đúng role thì hiện "Đã sửa lỗi"
   const lastEntry = order.history?.[order.history.length - 1];
   const isReported = order.status !== "cancelled" && !!lastEntry?.note?.startsWith("Báo lỗi");
@@ -394,6 +401,11 @@ export function OrderCard({ order, viewerRole }: { order: OrderLite; viewerRole?
             {h.note}
           </p>
         ))}
+      {order.status === "cancelled" && order.cancelReason && (
+        <p className="mt-2 text-xs leading-5 text-red-700 bg-red-50 rounded-xl px-3 py-2">
+          <span className="font-semibold">Lý do huỷ:</span> {order.cancelReason}
+        </p>
+      )}
       {order.note && (
         <p className="mt-2.5 text-sm font-semibold text-amber-800 bg-amber-50 border border-dashed border-amber-400 rounded-xl px-3 py-2">
           {order.note}

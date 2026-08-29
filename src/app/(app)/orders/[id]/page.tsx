@@ -204,6 +204,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
       {/* Báo lỗi sản xuất — đá đơn về khâu đứng trước.
           Role theo khâu chỉ báo được đơn đang chờ đúng khâu mình */}
       {order.status !== "cancelled" &&
+        order.status !== "da_giao" &&
         revertOptions(order.status).length > 0 &&
         canActOnOrder(role, order.status) && (
         showReport ? (
@@ -258,7 +259,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
         )
       )}
 
-      {(role === "admin" || role === "cskh") && order.status !== "cancelled" && (
+      {(role === "admin" || role === "cskh") && order.status !== "cancelled" && order.status !== "da_giao" && (
         confirmCancel ? (
           <div className="bg-white rounded-2xl border border-red-200 p-4 space-y-3">
             <p className="text-sm font-medium text-slate-700">Lý do huỷ đơn?</p>
@@ -274,7 +275,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
               </button>
               <button
                 onClick={() => patch({ action: "cancel", reason: cancelReason })}
-                disabled={busy}
+                disabled={busy || !cancelReason.trim()}
                 className="flex-1 py-2.5 rounded-xl bg-red-600 text-white text-sm font-semibold disabled:opacity-60"
               >
                 Xác nhận huỷ

@@ -77,6 +77,10 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       return NextResponse.json({ error: "Chỉ Quản lý hoặc CSKH được huỷ đơn" }, { status: 403 });
     if (order.status === "cancelled")
       return NextResponse.json({ error: "Đơn đã huỷ rồi" }, { status: 400 });
+    if (order.status === "da_giao")
+      return NextResponse.json({ error: "Đơn đã giao, không thể huỷ" }, { status: 400 });
+    if (!String(body.reason || "").trim())
+      return NextResponse.json({ error: "Cần nhập lý do huỷ" }, { status: 400 });
     order.status = "cancelled";
     order.statusChangedAt = new Date();
     order.cancelReason = body.reason || "";
@@ -90,6 +94,8 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   if (action === "rework") {
     if (order.status === "cancelled")
       return NextResponse.json({ error: "Đơn đã bị huỷ, không thể cập nhật" }, { status: 400 });
+    if (order.status === "da_giao")
+      return NextResponse.json({ error: "Đơn đã giao, không thể báo lỗi" }, { status: 400 });
     // Role theo khâu chỉ báo lỗi được đơn đang chờ đúng khâu mình
     if (!canActOnOrder(role, order.status as OrderStatus)) {
       return NextResponse.json(
