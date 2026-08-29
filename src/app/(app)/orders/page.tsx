@@ -2,12 +2,15 @@
 
 import { useCallback, useEffect, useRef, useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { Search, Loader2, Inbox, X } from "lucide-react";
+import { Search, Loader2, Inbox, X, ChevronDown } from "lucide-react";
 import { OrderCard, type OrderLite } from "@/components/OrderBits";
+import { DateField, PRESETS } from "@/components/RangeStats";
 import { STATUS_DISPLAY_LABELS, type OrderStatus } from "@/lib/stages";
 
 const FILTERS: { value: string; label: string }[] = [
   { value: "", label: "Tất cả" },
+  { value: "reported", label: "⚠ Báo lỗi" },
+  { value: "overdue", label: "Trễ >30p" },
   ...(["cho_cskh", "created", "ky_thuat", "in", "ep", "gia_cong", "dong_goi", "da_giao", "cancelled"] as OrderStatus[]).map(
     (s) => ({ value: s, label: STATUS_DISPLAY_LABELS[s] })
   ),
@@ -18,6 +21,9 @@ function OrdersList() {
   const router = useRouter();
   const [q, setQ] = useState(sp.get("q") || "");
   const [status, setStatus] = useState(sp.get("status") || "");
+  const [range, setRange] = useState<{ from: string; to: string }>({ from: "", to: "" });
+  const [activePreset, setActivePreset] = useState("Tất cả");
+  const [sort, setSort] = useState<"newest" | "oldest">("newest");
   const [items, setItems] = useState<OrderLite[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -33,11 +39,24 @@ function OrdersList() {
       .catch(() => {});
   }, []);
 
-  const load = useCallback(async (q: string, status: string, page: number, append = false) => {
+  const load = useCallback(
+    async (
+      q: string,
+      status: string,
+      range: { from: string; to: string },
+      sort: string,
+      page: number,
+      append = false
+    ) => {
     setLoading(true);
     const params = new URLSearchParams();
     if (q) params.set("q", q);
     if (status) params.set("status", status);
+    if (range.from && range.to) {
+      params.set("from", range.from);
+      params.set("to", range.to);
+    }
+    params.set("sort", sort);
     params.set("page", String(page));
     const res = await fetch(`/api/orders?${params}`);
     if (res.ok) {
@@ -47,14 +66,16 @@ function OrdersList() {
       setPages(data.pages);
     }
     setLoading(false);
-  }, []);
+    },
+    []
+  );
 
   useEffect(() => {
     setPage(1);
     clearTimeout(debounce.current);
-    debounce.current = setTimeout(() => load(q, status, 1), q ? 300 : 0);
+    debounce.current = setTimeout(() => load(q, status, range, sort, 1), q ? 300 : 0);
     return () => clearTimeout(debounce.current);
-  }, [q, status, load]);
+  }, [q, status, range, sort, load]);
 
   function pickStatus(v: string) {
     setStatus(v);
@@ -68,6 +89,58 @@ function OrdersList() {
       <div className="flex items-center justify-between">
         <h1 className="text-xl md:text-2xl font-bold text-slate-900">Đơn hàng</h1>
         <span className="text-sm text-slate-500">{total} đơn</span>
+      </div>
+
+      {/* Lọc theo thời gian tạo đơn — nằm trên ô search */}
+      <div className="flex flex-wrap items-center gap-1">
+        <button
+          onClick={() => {
+            setActivePreset("Tất cả");
+            setRange({ from: "", to: "" });
+          }}
+          className={`px-3.5 py-1.5 rounded-full text-sm font-medium transition ${
+            activePreset === "Tất cả"
+              ? "bg-[#f1592a] text-white shadow-sm shadow-[#f1592a]/25"
+              : "bg-white border border-[#f6d9c3] text-slate-600 active:bg-[#fbeee7]"
+          }`}
+        >
+          Tất cả
+        </button>
+        {PRESETS.map((p) => (
+          <button
+            key={p.label}
+            onClick={() => {
+              setActivePreset(p.label);
+              setRange(p.get());
+            }}
+            className={`px-3.5 py-1.5 rounded-full text-sm font-medium transition ${
+              activePreset === p.label
+                ? "bg-[#f1592a] text-white shadow-sm shadow-[#f1592a]/25"
+                : "bg-white border border-[#f6d9c3] text-slate-600 active:bg-[#fbeee7]"
+            }`}
+          >
+            {p.label}
+          </button>
+        ))}
+        <span className="inline-flex items-center text-sm text-slate-300 rounded-full border border-[#f6d9c3] bg-white px-1.5 py-0.5">
+          <DateField
+            value={range.from}
+            max={range.to || undefined}
+            onChange={(v) => {
+              setActivePreset("");
+              setRange((r) => ({ ...r, from: v }));
+            }}
+          />
+          –
+          <DateField
+            value={range.to}
+            min={range.from || undefined}
+            onChange={(v) => {
+              setActivePreset("");
+              setRange((r) => ({ ...r, to: v }));
+            }}
+          />
+        </span>
       </div>
 
       {/* Search */}
@@ -86,8 +159,24 @@ function OrdersList() {
         )}
       </div>
 
+      {/* Sắp xếp — bên phải, dưới ô search */}
+      <div className="flex justify-end -mt-1">
+        <span className="relative inline-flex items-center">
+          <select
+            value={sort}
+            onChange={(e) => setSort(e.target.value as "newest" | "oldest")}
+            style={{ fontSize: 14 }}
+            className="appearance-none pl-3.5 pr-8 py-1.5 rounded-full text-sm font-medium bg-white border border-[#f6d9c3] text-slate-600 outline-none cursor-pointer focus:border-[#f1592a] transition"
+          >
+            <option value="newest">Mới nhất trước</option>
+            <option value="oldest">Cũ nhất trước</option>
+          </select>
+          <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 pointer-events-none" />
+        </span>
+      </div>
+
       {/* Filter chips — scroll ngang trên mobile */}
-      <div className="flex gap-2 overflow-x-auto -mx-4 px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div className="flex gap-2 overflow-x-auto -mx-4 px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden mt-2!">
         {FILTERS.map((f) => (
           <button
             key={f.value}
@@ -126,7 +215,7 @@ function OrdersList() {
           onClick={() => {
             const next = page + 1;
             setPage(next);
-            load(q, status, next, true);
+            load(q, status, range, sort, next, true);
           }}
           disabled={loading}
           className="w-full py-3 rounded-2xl bg-white border border-[#f6d9c3] text-sm font-medium text-slate-600 active:bg-[#fbeee7] flex items-center justify-center gap-2"

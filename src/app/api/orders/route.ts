@@ -17,7 +17,22 @@ export async function GET(req: NextRequest) {
   const limit = Math.min(100, parseInt(sp.get("limit") || "20"));
 
   const filter: Record<string, unknown> = {};
-  if (status) filter.status = status;
+  if (status === "reported") {
+    // đơn đang bị báo lỗi = entry cuối trong lịch sử là báo lỗi
+    filter.status = { $nin: ["cancelled", "da_giao"] };
+    filter.$expr = {
+      $regexMatch: {
+        input: {
+          $ifNull: [{ $let: { vars: { l: { $arrayElemAt: ["$history", -1] } }, in: "$$l.note" } }, ""],
+        },
+        regex: "^Báo lỗi",
+      },
+    };
+  } else if (status === "overdue") {
+    // đơn trễ: đang trong sản xuất, đứng yên quá 30 phút
+    filter.status = { $nin: ["cancelled", "da_giao"] };
+    filter.statusChangedAt = { $lt: new Date(Date.now() - 30 * 60 * 1000) };
+  } else if (status) filter.status = status;
   else if (user.role !== "admin") filter.status = { $ne: "cancelled" }; // staff không thấy đơn huỷ
   if (source) filter.source = source;
   if (q) {
@@ -25,8 +40,24 @@ export async function GET(req: NextRequest) {
     filter.$or = [{ code: rx }, { name: rx }, { sourceOrderId: rx }, { customerName: rx }];
   }
 
+  // Lọc theo ngày tạo: ?from=YYYY-MM-DD&to=YYYY-MM-DD (inclusive hết ngày to)
+  const fromStr = sp.get("from");
+  const toStr = sp.get("to");
+  if (fromStr && toStr) {
+    const from = new Date(`${fromStr}T00:00:00`);
+    const to = new Date(`${toStr}T00:00:00`);
+    to.setDate(to.getDate() + 1);
+    if (!isNaN(from.getTime()) && !isNaN(to.getTime()) && from < to)
+      filter.createdAt = { $gte: from, $lt: to };
+  }
+
+  // ?sort=oldest → cũ nhất trước; mặc định mới nhất trước.
+  // Sort theo statusChangedAt (thời gian hiển thị trên card = hoạt động gần nhất),
+  // _id làm tiebreaker để thứ tự ổn định
+  const sortDir: 1 | -1 = sp.get("sort") === "oldest" ? 1 : -1;
+
   const [items, total] = await Promise.all([
-    Order.find(filter).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean(),
+    Order.find(filter).sort({ statusChangedAt: sortDir, _id: sortDir }).skip((page - 1) * limit).limit(limit).lean(),
     Order.countDocuments(filter),
   ]);
   return NextResponse.json({ items, total, page, pages: Math.ceil(total / limit) });

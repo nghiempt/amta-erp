@@ -1,13 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Loader2, PackagePlus, Package, Truck, PackageCheck } from "lucide-react";
+import Link from "next/link";
+import { Loader2, Package, AlertTriangle, TrendingUp, ShieldAlert } from "lucide-react";
+import { STAGE_COLORS, type OrderStatus } from "@/lib/stages";
+import { fmtVnd } from "@/lib/format";
 
-interface RangeData {
+interface StatsData {
   created: number;
-  dongGoi: number;
-  choGiao: number;
-  daGiao: number;
+  revenue: number;
+  overdue: number;
+  reported: number;
+  stageDone: Record<string, number>;
 }
 
 const toYmd = (d: Date) => {
@@ -24,16 +28,64 @@ function preset(days: number, offset = 0): { from: string; to: string } {
   return { from: toYmd(start), to: toYmd(end) };
 }
 
-const PRESETS = [
+export const PRESETS = [
   { label: "Hôm nay", get: () => preset(1) },
   { label: "Hôm qua", get: () => preset(1, 1) },
   { label: "7 ngày", get: () => preset(7) },
+  { label: "30 ngày", get: () => preset(30) },
+];
+
+const fmtDmy = (ymd: string) => {
+  const [y, m, d] = ymd.split("-");
+  return y && m && d ? `${d}/${m}/${y}` : "…";
+};
+
+// WebKit không cho style chữ bên trong <input type="date"> → tự render text,
+// input thật phủ trong suốt lên trên chỉ để mở date picker
+export function DateField({
+  value,
+  min,
+  max,
+  onChange,
+}: {
+  value: string;
+  min?: string;
+  max?: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <span className="relative inline-flex items-center justify-center px-2.5 py-1 rounded-full text-sm font-medium text-slate-600 tabular-nums cursor-pointer hover:bg-[#fbeee7] hover:text-[#f1592a] transition">
+      {fmtDmy(value)}
+      <input
+        type="date"
+        value={value}
+        min={min}
+        max={max}
+        onClick={(e) => e.currentTarget.showPicker?.()}
+        onChange={(e) => e.target.value && onChange(e.target.value)}
+        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+        aria-label="Chọn ngày"
+      />
+    </span>
+  );
+}
+
+// Mỗi khâu đã quét xong bao nhiêu đơn trong khoảng thời gian đang chọn
+const STAGE_DONE_ROWS: { status: OrderStatus; label: string }[] = [
+  { status: "created", label: "CSKH xong" },
+  { status: "ky_thuat", label: "Kỹ thuật xong" },
+  { status: "in", label: "In xong" },
+  { status: "ep", label: "Ép xong" },
+  { status: "gia_cong", label: "Gia công xong" },
+  { status: "dong_goi", label: "Đóng gói xong" },
+  { status: "da_giao", label: "Đã giao" },
+  { status: "cancelled", label: "Đã huỷ" },
 ];
 
 export default function RangeStats() {
   const [range, setRange] = useState(preset(1));
   const [active, setActive] = useState("Hôm nay");
-  const [data, setData] = useState<RangeData | null>(null);
+  const [data, setData] = useState<StatsData | null>(null);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async (from: string, to: string) => {
@@ -48,24 +100,16 @@ export default function RangeStats() {
   }, [range, load]);
 
   const tiles = [
-    { label: "Đơn tạo", value: data?.created, icon: PackagePlus, color: "text-indigo-600 bg-indigo-50" },
-    { label: "Đã đóng gói", value: data?.dongGoi, icon: Package, color: "text-orange-600 bg-orange-50" },
-    { label: "Chờ giao", value: data?.choGiao, icon: Truck, color: "text-amber-600 bg-amber-50" },
-    { label: "Đã giao", value: data?.daGiao, icon: PackageCheck, color: "text-emerald-600 bg-emerald-50" },
+    { label: "Tổng đơn", value: data?.created, icon: Package, color: "text-indigo-600 bg-indigo-50" },
+    { label: "Đơn trễ", value: data?.overdue, icon: AlertTriangle, color: "text-red-600 bg-red-50", href: "/orders?status=overdue" },
+    { label: "Đơn lỗi", value: data?.reported, icon: ShieldAlert, color: "text-amber-600 bg-amber-50", href: "/orders?status=reported" },
+    { label: "Doanh thu", value: data ? fmtVnd(data.revenue) : undefined, icon: TrendingUp, color: "text-emerald-600 bg-emerald-50" },
   ];
 
-  // min-w-0 + flex-1: input date có min-width mặc định rất lớn, dễ tràn màn hình mobile
-  const dateCls =
-    "flex-1 min-w-0 w-full px-3 py-2 rounded-xl bg-[#fbeee7] text-sm text-slate-700 border-2 border-transparent focus:border-[#f1592a] focus:bg-white outline-none transition";
-
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 p-4 md:p-5 space-y-3">
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <h2 className="font-semibold text-slate-900">Số liệu theo thời gian</h2>
-        {loading && <Loader2 className="w-4 h-4 animate-spin text-[#f1592a]" />}
-      </div>
-
-      <div className="flex flex-wrap items-center gap-2">
+    <div className="bg-white rounded-2xl border border-slate-200 p-4 md:p-5 space-y-4">
+      {/* Filter thời gian */}
+      <div className="flex flex-wrap items-center gap-1.5">
         {PRESETS.map((p) => (
           <button
             key={p.label}
@@ -73,7 +117,7 @@ export default function RangeStats() {
               setActive(p.label);
               setRange(p.get());
             }}
-            className={`px-3.5 py-1.5 rounded-full text-sm font-medium transition ${
+            className={`px-3 py-1.5 rounded-full text-xs font-medium transition ${
               active === p.label
                 ? "bg-[#f1592a] text-white shadow-sm shadow-[#f1592a]/25"
                 : "bg-white border border-[#f6d9c3] text-slate-600 active:bg-[#fbeee7]"
@@ -82,41 +126,64 @@ export default function RangeStats() {
             {p.label}
           </button>
         ))}
-        <span className="flex items-center gap-1.5 text-sm text-slate-500 w-full sm:w-auto sm:flex-1 min-w-0">
-          <input
-            type="date"
+        <span className="inline-flex items-center text-xs text-slate-300 ml-auto rounded-full border border-[#f6d9c3] bg-white px-1 py-0.5">
+          <DateField
             value={range.from}
             max={range.to}
-            onChange={(e) => {
+            onChange={(v) => {
               setActive("");
-              setRange((r) => ({ ...r, from: e.target.value }));
+              setRange((r) => ({ ...r, from: v }));
             }}
-            className={dateCls}
           />
-          →
-          <input
-            type="date"
+          –
+          <DateField
             value={range.to}
             min={range.from}
-            onChange={(e) => {
+            onChange={(v) => {
               setActive("");
-              setRange((r) => ({ ...r, to: e.target.value }));
+              setRange((r) => ({ ...r, to: v }));
             }}
-            className={dateCls}
           />
         </span>
+        {loading && <Loader2 className="w-4 h-4 animate-spin text-[#f1592a]" />}
       </div>
 
+      {/* 4 chỉ số chính */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {tiles.map((t) => (
-          <div key={t.label} className="rounded-xl border border-slate-100 p-3.5">
-            <div className={`w-8 h-8 rounded-lg flex items-center justify-center mb-2 ${t.color}`}>
-              <t.icon className="w-4.5 h-4.5" />
+        {tiles.map((t) => {
+          const inner = (
+            <>
+              <div className={`w-9 h-9 rounded-xl flex items-center justify-center mb-2.5 ${t.color}`}>
+                <t.icon className="w-5 h-5" />
+              </div>
+              <p className="text-lg font-bold text-slate-900 leading-tight">{t.value ?? "—"}</p>
+              <p className="text-xs text-slate-500 mt-0.5">{t.label}</p>
+            </>
+          );
+          const cls = "block rounded-xl border border-slate-100 p-3.5";
+          return t.href ? (
+            <Link key={t.label} href={t.href} className={`${cls} active:scale-[0.98] transition`}>
+              {inner}
+            </Link>
+          ) : (
+            <div key={t.label} className={cls}>
+              {inner}
             </div>
-            <p className="text-xl font-bold text-slate-900 leading-tight">{t.value ?? "—"}</p>
-            <p className="text-xs text-slate-500 mt-0.5">{t.label}</p>
-          </div>
-        ))}
+          );
+        })}
+      </div>
+
+      {/* Mỗi khâu quét xong bao nhiêu đơn trong khoảng đang chọn */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+        {STAGE_DONE_ROWS.map(({ status, label }) => {
+          const c = STAGE_COLORS[status];
+          return (
+            <div key={status} className={`flex items-center justify-between px-3 py-2.5 rounded-xl ${c.bg}`}>
+              <span className={`text-sm font-medium ${c.text}`}>{label}</span>
+              <span className={`text-sm font-bold ${c.text}`}>{data?.stageDone[status] || 0}</span>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

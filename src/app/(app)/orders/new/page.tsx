@@ -111,8 +111,8 @@ export default function NewOrderPage() {
         .price{font-size:14px}
         .note{margin-top:10px;padding:8px;border:1.5px dashed #111;border-radius:8px;font-size:14px;font-weight:600}
       </style></head><body>
-      <div class="code">${created.code}</div>
-      <div class="src">Shopee: ${created.sourceOrderId}</div>
+      <div class="code">Shopee: ${created.sourceOrderId}</div>
+      <div class="src">${created.code}</div>
       <img src="${created.qr}" alt="QR"/>
       <div class="name">${created.name}</div>
       <div class="price">${created.price.toLocaleString("vi-VN")} đ</div>
@@ -131,8 +131,10 @@ export default function NewOrderPage() {
       <div className="p-4 md:p-8 max-w-md mx-auto space-y-4">
         {/* Preview phiếu */}
         <div className="bg-white rounded-2xl border border-[#f6d9c3] shadow-sm p-6 text-center">
-          <p className="font-mono font-bold text-xl text-slate-900">{created.code}</p>
-          <p className="font-mono text-xs text-slate-500 mt-0.5">Shopee: {created.sourceOrderId}</p>
+          <p className="font-mono font-bold text-xl text-slate-900 break-all">
+            Shopee: {created.sourceOrderId}
+          </p>
+          <p className="font-mono text-xs text-slate-500 mt-0.5">{created.code}</p>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={created.qr} alt="QR" className="w-48 h-48 mx-auto my-3" />
           <p className="font-semibold text-slate-900">{created.name}</p>

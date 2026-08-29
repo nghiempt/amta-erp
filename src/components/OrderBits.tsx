@@ -110,8 +110,8 @@ function ReprintModal({
         .price{font-size:14px}
         .note{margin-top:10px;padding:8px;border:1.5px dashed #111;border-radius:8px;font-size:14px;font-weight:600}
       </style></head><body>
-      <div class="code">${order.code}</div>
-      <div class="src">${sourceName}: ${order.sourceOrderId}</div>
+      <div class="code">${sourceName}: ${order.sourceOrderId}</div>
+      <div class="src">${order.code}</div>
       ${barcode ? `<img class="bar" src="${barcode}" alt="barcode"/>` : ""}
       <img src="${qr}" alt="QR"/>
       <div class="name">${order.name}</div>
@@ -132,8 +132,10 @@ function ReprintModal({
           <X className="w-5 h-5" />
         </button>
         <div className="text-center">
-          <p className="font-mono font-bold text-xl text-slate-900">{order.code}</p>
-          <p className="font-mono text-xs text-slate-500 mt-0.5">{sourceName}: {order.sourceOrderId}</p>
+          <p className="font-mono font-bold text-xl text-slate-900 break-all">
+            {sourceName}: {order.sourceOrderId}
+          </p>
+          <p className="font-mono text-xs text-slate-500 mt-0.5">{order.code}</p>
           {barcode && (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={barcode} alt="barcode" className="w-56 h-16 object-contain mx-auto mt-3" />
@@ -357,6 +359,9 @@ export function OrderCard({ order, viewerRole }: { order: OrderLite; viewerRole?
             <SourceBadge source={order.source} />
             <span className="text-xs font-mono text-slate-500 truncate">{order.sourceOrderId}</span>
           </div>
+          <p className="text-xs text-slate-500 inline-flex items-center gap-1 mb-1">
+            <Clock className="w-3.5 h-3.5" /> {timeAgo(order.statusChangedAt)} · {fmtShortTime(order.createdAt)}
+          </p>
           <p className="font-semibold text-slate-900 truncate">{order.name}</p>
           <p className="text-sm text-slate-500 truncate">
             {[
@@ -412,9 +417,6 @@ export function OrderCard({ order, viewerRole }: { order: OrderLite; viewerRole?
         </p>
       )}
       <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center flex-wrap gap-x-3 gap-y-2 text-xs text-slate-400">
-        <span className="inline-flex items-center gap-1 whitespace-nowrap">
-          <Clock className="w-3.5 h-3.5" /> {timeAgo(order.statusChangedAt)}
-        </span>
         {overdue && (
           <span className="inline-flex items-center gap-1 text-red-600 font-semibold whitespace-nowrap">
             <AlertTriangle className="w-3.5 h-3.5" /> Quá 30p

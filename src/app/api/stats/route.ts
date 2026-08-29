@@ -20,15 +20,52 @@ export async function GET(req: NextRequest) {
     if (isNaN(from.getTime()) || isNaN(to.getTime()) || from >= to)
       return NextResponse.json({ error: "Khoảng ngày không hợp lệ" }, { status: 400 });
     const range = { $gte: from, $lt: to };
-    const [created, dongGoi, choGiao, daGiao] = await Promise.all([
+    const [created, revenueAgg, overdue, reported, byStatus] = await Promise.all([
       Order.countDocuments({ createdAt: range }),
-      // đã đóng gói xong trong khoảng (dựa vào lịch sử, kể cả đơn đã đi tiếp khâu sau)
-      Order.countDocuments({ history: { $elemMatch: { status: "dong_goi", at: range } } }),
-      // đang chờ giao, vào trạng thái đó trong khoảng
-      Order.countDocuments({ status: "dong_goi", statusChangedAt: range }),
-      Order.countDocuments({ history: { $elemMatch: { status: "da_giao", at: range } } }),
+      // doanh thu: tổng tiền các đơn tạo trong khoảng (không tính đơn huỷ)
+      Order.aggregate([
+        { $match: { createdAt: range, status: { $ne: "cancelled" } } },
+        { $group: { _id: null, total: { $sum: { $multiply: ["$price", "$quantity"] } } } },
+      ]),
+      // đơn trễ & đơn đang báo lỗi: số liệu hiện tại (không phụ thuộc khoảng ngày)
+      Order.countDocuments({
+        status: { $nin: ["da_giao", "cancelled"] },
+        statusChangedAt: { $lt: new Date(Date.now() - 30 * 60 * 1000) },
+      }),
+      Order.countDocuments({
+        status: { $nin: ["da_giao", "cancelled"] },
+        $expr: {
+          $regexMatch: {
+            input: {
+              $ifNull: [{ $let: { vars: { l: { $arrayElemAt: ["$history", -1] } }, in: "$$l.note" } }, ""],
+            },
+            regex: "^Báo lỗi",
+          },
+        },
+      }),
+      // mỗi khâu đã quét xong bao nhiêu đơn trong khoảng (đếm đơn, không đếm lượt;
+      // bỏ qua entry báo lỗi vì đó không phải lượt quét hoàn thành khâu)
+      Order.aggregate([
+        { $unwind: "$history" },
+        {
+          $match: {
+            "history.at": range,
+            $or: [{ "history.note": { $exists: false } }, { "history.note": { $not: /^Báo lỗi/ } }],
+          },
+        },
+        { $group: { _id: { stage: "$history.status", order: "$_id" } } },
+        { $group: { _id: "$_id.stage", count: { $sum: 1 } } },
+      ]),
     ]);
-    return NextResponse.json({ created, dongGoi, choGiao, daGiao });
+    const stageDone: Record<string, number> = {};
+    for (const s of byStatus) stageDone[s._id] = s.count;
+    return NextResponse.json({
+      created,
+      revenue: revenueAgg[0]?.total || 0,
+      overdue,
+      reported,
+      stageDone,
+    });
   }
 
   const startOfDay = new Date();
