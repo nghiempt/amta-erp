@@ -20,6 +20,7 @@ const navFor = (role: string) => {
     return [
       { href: "/orders/new", label: "Tạo đơn", icon: PlusCircle },
       { href: "/orders", label: "Đơn hàng", icon: ClipboardList },
+      { href: "/scan", label: "Quét mã", icon: ScanLine },
     ];
   if (role === "admin")
     return [

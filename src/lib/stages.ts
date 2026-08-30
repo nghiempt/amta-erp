@@ -77,7 +77,8 @@ export function revertOptions(status: OrderStatus): Stage[] {
 // Role có được thao tác (quét / báo lỗi / xác nhận sửa) đơn này không?
 // Role nào chỉ đụng được đơn đang chờ đúng khâu mình — kể cả CSKH (chỉ đơn "Chờ CSKH")
 export function canActOnOrder(role: string, status: OrderStatus): boolean {
-  if (role === "cskh") return status === "cho_cskh";
+  // CSKH: đơn "Chờ CSKH" (sửa lỗi) + đơn "Chờ giao" (CSKH quét xác nhận giao)
+  if (role === "cskh") return status === "cho_cskh" || status === "dong_goi";
   if (!STAGE_ROLES.has(role)) return true; // admin, staff chung
   return nextStage(status) === role;
 }
