@@ -6,6 +6,8 @@ import JsBarcode from "jsbarcode";
 import {
   STATUS_DISPLAY_LABELS,
   STAGE_COLORS,
+  STAGE_LABELS,
+  nextStage,
   revertOptions,
   canActOnOrder,
   type OrderStatus,
@@ -28,6 +30,19 @@ export interface OrderLite {
   createdAt: string;
   history?: { status: OrderStatus; byName: string; at?: string; note?: string }[];
   cancelReason?: string;
+}
+
+// Khâu đang báo lỗi = khâu mà đơn đang chờ ngay trước entry báo lỗi
+// (suy từ entry liền trước trong lịch sử)
+export function reportStageLabel(
+  hist: { status: OrderStatus; note?: string }[],
+  reportIdx: number
+): string {
+  const prev = hist[reportIdx - 1];
+  if (!prev) return "";
+  const s = nextStage(prev.status);
+  if (!s) return "";
+  return s === "da_giao" ? "Giao" : STAGE_LABELS[s];
 }
 
 const fmtShortTime = (iso?: string) =>
@@ -379,37 +394,63 @@ export function OrderCard({ order, viewerRole }: { order: OrderLite; viewerRole?
         </div>
         <StatusBadge status={order.status} />
       </div>
-      {/* Quy trình: ai làm khâu nào lúc nào — 1 dòng xám gọn */}
-      {(order.history?.filter((h) => h.byName && !h.note?.startsWith("Báo lỗi")).length ?? 0) > 0 && (
-        <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 mt-2.5 text-[11px] leading-4 text-slate-500">
-          {order
-            .history!.filter((h) => h.byName && !h.note?.startsWith("Báo lỗi"))
-            .map((h, i) => (
-              <span key={i} className="inline-flex items-center gap-1.5 whitespace-nowrap">
-                {i > 0 && <span className="text-slate-300">›</span>}
+      {/* Quy trình: timeline dọc theo đúng trình tự thời gian —
+          sự kiện báo lỗi nằm inline đúng vị trí, khâu làm lại được đánh dấu */}
+      {(order.history?.filter((h) => h.byName).length ?? 0) > 0 && (
+        <div className="mt-2.5 space-y-0.5 text-[11px] leading-4">
+          {order.history!.map((h, idx, hist) => {
+            if (!h.byName) return null;
+            if (h.note?.startsWith("Báo lỗi")) {
+              const stage = reportStageLabel(hist, idx);
+              return (
+                <div key={idx} className="flex items-baseline gap-1.5 text-red-600">
+                  <span className="shrink-0">⚠</span>
+                  <span>
+                    <span className="font-semibold">{stage ? `Khâu ${stage} báo lỗi` : "Báo lỗi"}</span>
+                    {" → về "}
+                    <span className="font-semibold">&quot;{STATUS_DISPLAY_LABELS[h.status]}&quot;</span>
+                    <span className="text-red-400"> · {h.byName}{h.at ? ` · ${fmtShortTime(h.at)}` : ""}</span>
+                  </span>
+                </div>
+              );
+            }
+            // khâu này đã từng làm trước đó → lượt làm lại sau báo lỗi
+            const isRedo = hist.slice(0, idx).some(
+              (p) => p.status === h.status && !p.note?.startsWith("Báo lỗi")
+            );
+            return (
+              <div key={idx} className="flex items-baseline gap-1.5 text-slate-500">
+                <span className={`w-1.5 h-1.5 rounded-full shrink-0 self-center ${STAGE_COLORS[h.status]?.dot || "bg-slate-300"}`} />
                 <span>
-                  <span className="text-slate-400">{HISTORY_ROLE_LABELS[h.status] || h.status}</span>{" "}
+                  <span className="text-slate-400">{HISTORY_ROLE_LABELS[h.status] || h.status}</span>
+                  {isRedo && <span className="text-amber-600 font-medium"> (làm lại)</span>}{" "}
                   <span className="font-medium text-slate-600">{h.byName}</span>
                   {h.at && <span className="text-slate-400"> · {fmtShortTime(h.at)}</span>}
                 </span>
-              </span>
-            ))}
+              </div>
+            );
+          })}
         </div>
       )}
 
-      {/* Các lần báo lỗi — khối đỏ riêng, đầy đủ nội dung */}
+      {/* Các lần báo lỗi — khối đỏ riêng, đầy đủ nội dung + khâu đang báo lỗi */}
       {order.history
-        ?.filter((h) => h.byName && h.note?.startsWith("Báo lỗi"))
-        .map((h, i) => (
-          <p key={i} className="mt-2 text-xs leading-5 text-red-700 bg-red-50 rounded-xl px-3 py-2">
-            <span className="font-semibold">
-              ⚠ {h.byName}
-              {h.at && <span className="font-normal text-red-400"> · {fmtShortTime(h.at)}</span>}
-            </span>
-            <br />
-            {h.note}
-          </p>
-        ))}
+        ?.map((h, idx) => ({ h, idx }))
+        .filter(({ h }) => h.byName && h.note?.startsWith("Báo lỗi"))
+        .map(({ h, idx }) => {
+          const stage = reportStageLabel(order.history!, idx);
+          return (
+            <p key={idx} className="mt-2 text-xs leading-5 text-red-700 bg-red-50 rounded-xl px-3 py-2">
+              <span className="font-semibold">
+                ⚠ {stage ? `Khâu ${stage} — ` : ""}
+                {h.byName}
+                {h.at && <span className="font-normal text-red-400"> · {fmtShortTime(h.at)}</span>}
+              </span>
+              <br />
+              {h.note}
+            </p>
+          );
+        })}
       {order.status === "cancelled" && order.cancelReason && (
         <p className="mt-2 text-xs leading-5 text-red-700 bg-red-50 rounded-xl px-3 py-2">
           <span className="font-semibold">Lý do huỷ:</span> {order.cancelReason}

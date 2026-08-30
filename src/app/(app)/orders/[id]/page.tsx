@@ -12,7 +12,7 @@ import {
   CheckCircle2,
   User as UserIcon,
 } from "lucide-react";
-import { StatusBadge, SourceBadge, fmtVnd, timeAgo, isOverdue } from "@/components/OrderBits";
+import { StatusBadge, SourceBadge, fmtVnd, timeAgo, isOverdue, reportStageLabel } from "@/components/OrderBits";
 import {
   STAGE_LABELS,
   STATUS_DISPLAY_LABELS,
@@ -304,7 +304,12 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
               </div>
               <div className="pb-1">
                 <p className={`text-sm font-semibold ${h.note?.startsWith("Báo lỗi") ? "text-red-600" : "text-slate-800"}`}>
-                  {h.note?.startsWith("Báo lỗi") ? "⚠ Báo lỗi sản xuất" : STAGE_LABELS[h.status]}
+                  {h.note?.startsWith("Báo lỗi")
+                    ? `⚠ Báo lỗi sản xuất${(() => {
+                        const s = reportStageLabel(order.history, order.history.length - 1 - i);
+                        return s ? ` — khâu ${s}` : "";
+                      })()}`
+                    : STAGE_LABELS[h.status]}
                 </p>
                 <p className="text-xs text-slate-500">
                   {h.byName} · {new Date(h.at).toLocaleString("vi-VN")}
