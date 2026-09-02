@@ -30,6 +30,9 @@ function OrdersList() {
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [viewerRole, setViewerRole] = useState<string | undefined>(undefined);
   const debounce = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  // Kéo ngang hàng chip bằng chuột (desktop) — nhấn giữ và kéo
+  const chipsRef = useRef<HTMLDivElement | null>(null);
+  const drag = useRef({ down: false, startX: 0, scroll: 0, moved: false });
 
   useEffect(() => {
     fetch("/api/auth/me")
@@ -185,8 +188,31 @@ function OrdersList() {
         </span>
       </div>
 
-      {/* Filter chips — scroll ngang trên mobile */}
-      <div className="flex gap-2 overflow-x-auto -mx-4 px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden mt-2!">
+      {/* Filter chips — scroll ngang: vuốt trên mobile, nhấn giữ kéo bằng chuột trên desktop */}
+      <div
+        ref={chipsRef}
+        onMouseDown={(e) => {
+          if (!chipsRef.current) return;
+          drag.current = { down: true, startX: e.pageX, scroll: chipsRef.current.scrollLeft, moved: false };
+        }}
+        onMouseMove={(e) => {
+          if (!drag.current.down || !chipsRef.current) return;
+          const dx = e.pageX - drag.current.startX;
+          if (Math.abs(dx) > 5) drag.current.moved = true;
+          chipsRef.current.scrollLeft = drag.current.scroll - dx;
+        }}
+        onMouseUp={() => (drag.current.down = false)}
+        onMouseLeave={() => (drag.current.down = false)}
+        onClickCapture={(e) => {
+          // vừa kéo xong thì nuốt click để không kích hoạt nhầm chip
+          if (drag.current.moved) {
+            e.preventDefault();
+            e.stopPropagation();
+            drag.current.moved = false;
+          }
+        }}
+        className="flex gap-2 overflow-x-auto -mx-4 px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden mt-2! select-none cursor-grab active:cursor-grabbing"
+      >
         {FILTERS.map((f) => (
           <button
             key={f.value}
