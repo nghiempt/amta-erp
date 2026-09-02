@@ -100,7 +100,7 @@ function LoginForm() {
           </button>
         </form>
 
-        <p className="text-center text-slate-400 text-xs mt-10">
+        <p className="text-center text-red-600 text-xs mt-10">
           © {new Date().getFullYear()} Ảnh Màu Tuấn Anh
         </p>
       </div>

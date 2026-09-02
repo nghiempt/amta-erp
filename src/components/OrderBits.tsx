@@ -13,7 +13,7 @@ import {
   type OrderStatus,
   type Stage,
 } from "@/lib/stages";
-import { Clock, AlertTriangle, Printer, X, Loader2, CheckCircle2 } from "lucide-react";
+import { Clock, AlertTriangle, Printer, X, Loader2, CheckCircle2, Trash2 } from "lucide-react";
 
 export interface OrderLite {
   _id: string;
@@ -307,12 +307,58 @@ function CancelModal({ order, onClose }: { order: OrderLite; onClose: () => void
   );
 }
 
+// Popup xoá vĩnh viễn đơn — chỉ Quản lý, mọi khâu
+function DeleteModal({ order, onClose }: { order: OrderLite; onClose: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  async function submit() {
+    setBusy(true);
+    setError("");
+    const res = await fetch(`/api/orders/${order._id}`, { method: "DELETE" });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setError(data.error || "Có lỗi xảy ra");
+      setBusy(false);
+      return;
+    }
+    window.location.reload();
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl w-full max-w-sm p-5 space-y-3" onClick={(e) => e.stopPropagation()}>
+        <p className="font-semibold text-slate-900">Xoá vĩnh viễn đơn?</p>
+        <p className="text-sm text-slate-500">
+          {order.name} ({order.sourceOrderId}) sẽ bị xoá hẳn khỏi hệ thống cùng toàn bộ lịch sử — không khôi phục được.
+        </p>
+        {error && <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>}
+        <div className="flex gap-2">
+          <button onClick={onClose} className="flex-1 py-2.5 rounded-xl bg-slate-100 text-sm font-medium text-slate-600">
+            Không
+          </button>
+          <button
+            onClick={submit}
+            disabled={busy}
+            className="flex-1 py-2.5 rounded-xl bg-red-600 text-white text-sm font-semibold disabled:opacity-60 flex items-center justify-center gap-2"
+          >
+            {busy && <Loader2 className="w-4 h-4 animate-spin" />} Xoá vĩnh viễn
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function OrderCard({ order, viewerRole }: { order: OrderLite; viewerRole?: string }) {
   const overdue = isOverdue(order);
   const [reprint, setReprint] = useState<{ qr: string; barcode: string | null } | null>(null);
   const [reporting, setReporting] = useState(false);
   const [fixing, setFixing] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const [deletingOrder, setDeletingOrder] = useState(false);
+  // Xoá vĩnh viễn: chỉ Quản lý, mọi khâu (viewerRole thiếu = dashboard admin)
+  const canDelete = !viewerRole || viewerRole === "admin";
   // Huỷ đơn: chỉ Quản lý & CSKH, đơn chưa huỷ và chưa giao (viewerRole thiếu = dashboard admin)
   const canCancel =
     order.status !== "cancelled" &&
@@ -402,14 +448,29 @@ export function OrderCard({ order, viewerRole }: { order: OrderLite; viewerRole?
             if (!h.byName) return null;
             if (h.note?.startsWith("Báo lỗi")) {
               const stage = reportStageLabel(hist, idx);
+              // lấy lý do lỗi từ note: `Báo lỗi: <lý do> — chuyển về ...`
+              const reason = h.note.replace(/^Báo lỗi:\s*/, "").replace(/\s*—\s*(chuyển về|làm lại từ khâu)[\s\S]*$/, "");
               return (
                 <div key={idx} className="flex items-baseline gap-1.5 text-red-600">
                   <span className="shrink-0">⚠</span>
                   <span>
                     <span className="font-semibold">{stage ? `Khâu ${stage} báo lỗi` : "Báo lỗi"}</span>
+                    {reason && <span className="font-semibold">: &quot;{reason}&quot;</span>}
                     {" → về "}
                     <span className="font-semibold">&quot;{STATUS_DISPLAY_LABELS[h.status]}&quot;</span>
                     <span className="text-red-400"> · {h.byName}{h.at ? ` · ${fmtShortTime(h.at)}` : ""}</span>
+                  </span>
+                </div>
+              );
+            }
+            // khâu được bỏ qua (sản phẩm không cần) — hiện mờ để thấy luồng nhảy khâu
+            if (h.note?.startsWith("Bỏ qua")) {
+              return (
+                <div key={idx} className="flex items-baseline gap-1.5 text-slate-400 italic">
+                  <span className="w-1.5 h-1.5 rounded-full shrink-0 self-center border border-slate-300" />
+                  <span>
+                    {HISTORY_ROLE_LABELS[h.status] || h.status} — bỏ qua (không cần)
+                    {h.at && <span> · {fmtShortTime(h.at)}</span>}
                   </span>
                 </div>
               );
@@ -433,24 +494,6 @@ export function OrderCard({ order, viewerRole }: { order: OrderLite; viewerRole?
         </div>
       )}
 
-      {/* Các lần báo lỗi — khối đỏ riêng, đầy đủ nội dung + khâu đang báo lỗi */}
-      {order.history
-        ?.map((h, idx) => ({ h, idx }))
-        .filter(({ h }) => h.byName && h.note?.startsWith("Báo lỗi"))
-        .map(({ h, idx }) => {
-          const stage = reportStageLabel(order.history!, idx);
-          return (
-            <p key={idx} className="mt-2 text-xs leading-5 text-red-700 bg-red-50 rounded-xl px-3 py-2">
-              <span className="font-semibold">
-                ⚠ {stage ? `Khâu ${stage} — ` : ""}
-                {h.byName}
-                {h.at && <span className="font-normal text-red-400"> · {fmtShortTime(h.at)}</span>}
-              </span>
-              <br />
-              {h.note}
-            </p>
-          );
-        })}
       {order.status === "cancelled" && order.cancelReason && (
         <p className="mt-2 text-xs leading-5 text-red-700 bg-red-50 rounded-xl px-3 py-2">
           <span className="font-semibold">Lý do huỷ:</span> {order.cancelReason}
@@ -468,6 +511,15 @@ export function OrderCard({ order, viewerRole }: { order: OrderLite; viewerRole?
           </span>
         )}
         <span className="ml-auto inline-flex items-center gap-1.5">
+          {canDelete && (
+            <button
+              onClick={() => setDeletingOrder(true)}
+              aria-label="Xoá đơn"
+              className="inline-flex items-center px-2 py-1.5 rounded-lg bg-red-50 text-red-600 active:scale-95 transition"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          )}
           {canCancel && (
             <button
               onClick={() => setCancelling(true)}
@@ -509,6 +561,7 @@ export function OrderCard({ order, viewerRole }: { order: OrderLite; viewerRole?
       )}
       {reporting && <ReportErrorModal order={order} onClose={() => setReporting(false)} />}
       {cancelling && <CancelModal order={order} onClose={() => setCancelling(false)} />}
+      {deletingOrder && <DeleteModal order={order} onClose={() => setDeletingOrder(false)} />}
     </div>
   );
 }

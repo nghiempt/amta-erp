@@ -16,6 +16,8 @@ export async function GET(req: NextRequest) {
   const page = Math.max(1, parseInt(sp.get("page") || "1"));
   const limit = Math.min(100, parseInt(sp.get("limit") || "20"));
 
+  // filter chung (tìm kiếm + khoảng ngày) — dùng cho cả list lẫn đếm theo stage
+  const common: Record<string, unknown> = {};
   const filter: Record<string, unknown> = {};
   if (status === "reported") {
     // đơn đang bị báo lỗi = entry cuối trong lịch sử là báo lỗi
@@ -29,15 +31,15 @@ export async function GET(req: NextRequest) {
       },
     };
   } else if (status === "overdue") {
-    // đơn trễ: đang trong sản xuất, đứng yên quá 30 phút
-    filter.status = { $nin: ["cancelled", "da_giao"] };
+    // đơn trễ: đang trong sản xuất, đứng yên quá 30 phút (Chờ giao không tính trễ)
+    filter.status = { $nin: ["cancelled", "da_giao", "dong_goi"] };
     filter.statusChangedAt = { $lt: new Date(Date.now() - 30 * 60 * 1000) };
   } else if (status) filter.status = status;
   else if (user.role !== "admin") filter.status = { $ne: "cancelled" }; // staff không thấy đơn huỷ
   if (source) filter.source = source;
   if (q) {
     const rx = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
-    filter.$or = [{ code: rx }, { name: rx }, { sourceOrderId: rx }, { customerName: rx }];
+    common.$or = [{ code: rx }, { name: rx }, { sourceOrderId: rx }, { customerName: rx }];
   }
 
   // Lọc theo ngày tạo: ?from=YYYY-MM-DD&to=YYYY-MM-DD (inclusive hết ngày to)
@@ -48,19 +50,30 @@ export async function GET(req: NextRequest) {
     const to = new Date(`${toStr}T00:00:00`);
     to.setDate(to.getDate() + 1);
     if (!isNaN(from.getTime()) && !isNaN(to.getTime()) && from < to)
-      filter.createdAt = { $gte: from, $lt: to };
+      common.createdAt = { $gte: from, $lt: to };
   }
+  Object.assign(filter, common);
 
   // ?sort=oldest → cũ nhất trước; mặc định mới nhất trước.
   // Sort theo statusChangedAt (thời gian hiển thị trên card = hoạt động gần nhất),
   // _id làm tiebreaker để thứ tự ổn định
   const sortDir: 1 | -1 = sp.get("sort") === "oldest" ? 1 : -1;
 
-  const [items, total] = await Promise.all([
+  const [items, total, byStatus] = await Promise.all([
     Order.find(filter).sort({ statusChangedAt: sortDir, _id: sortDir }).skip((page - 1) * limit).limit(limit).lean(),
     Order.countDocuments(filter),
+    // đếm theo stage (theo cùng filter tìm kiếm + ngày) cho các chip lọc
+    Order.aggregate([{ $match: common }, { $group: { _id: "$status", count: { $sum: 1 } } }]),
   ]);
-  return NextResponse.json({ items, total, page, pages: Math.ceil(total / limit) });
+  const counts: Record<string, number> = {};
+  let all = 0;
+  for (const s of byStatus) {
+    counts[s._id] = s.count;
+    all += s.count;
+  }
+  // "Tất cả" của staff không gồm đơn huỷ (khớp danh sách họ thấy)
+  counts[""] = user.role === "admin" ? all : all - (counts["cancelled"] || 0);
+  return NextResponse.json({ items, total, page, pages: Math.ceil(total / limit), counts });
 }
 
 // POST /api/orders — admin only

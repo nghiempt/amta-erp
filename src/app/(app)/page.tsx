@@ -24,7 +24,7 @@ export default async function DashboardPage() {
   return (
     <div className="p-4 md:p-8 max-w-5xl mx-auto space-y-6">
       <div>
-        <h1 className="text-xl md:text-2xl font-bold text-slate-900">
+        <h1 className="text-xl md:text-2xl font-bold text-red-600">
           Xin chào, {user.name} 👋
         </h1>
         <p className="text-sm text-slate-500">Tổng quan sản xuất</p>

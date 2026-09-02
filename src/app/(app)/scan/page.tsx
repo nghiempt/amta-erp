@@ -13,7 +13,13 @@ import {
   Search,
 } from "lucide-react";
 import { StatusBadge, SourceBadge, fmtVnd } from "@/components/OrderBits";
-import { STAGE_LABELS, nextStage, type OrderStatus } from "@/lib/stages";
+import {
+  STAGE_LABELS,
+  STATUS_DISPLAY_LABELS,
+  SKIPPABLE_STATUSES,
+  nextStage,
+  type OrderStatus,
+} from "@/lib/stages";
 
 const Scanner = dynamic(() => import("@/components/Scanner"), { ssr: false });
 
@@ -49,14 +55,14 @@ export default function ScanPage() {
     setLoading(false);
   }
 
-  async function advance() {
+  async function advance(skip = false) {
     if (!order) return;
     setLoading(true);
     setError("");
     const res = await fetch(`/api/orders/${order._id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "advance" }),
+      body: JSON.stringify({ action: "advance", skip }),
     });
     const data = await res.json();
     if (!res.ok) setError(data.error || "Có lỗi xảy ra");
@@ -153,14 +159,27 @@ export default function ScanPage() {
           )}
 
           {!done && next && (
-            <button
-              onClick={advance}
-              disabled={loading}
-              className="w-full py-4 rounded-2xl bg-indigo-600 active:scale-[0.98] text-white font-semibold text-base transition flex items-center justify-center gap-2 disabled:opacity-60"
-            >
-              {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <ArrowRightCircle className="w-5 h-5" />}
-              Xác nhận: {STAGE_LABELS[next]}
-            </button>
+            <>
+              <button
+                onClick={() => advance()}
+                disabled={loading}
+                className="w-full py-4 rounded-2xl bg-indigo-600 active:scale-[0.98] text-white font-semibold text-base transition flex items-center justify-center gap-2 disabled:opacity-60"
+              >
+                {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <ArrowRightCircle className="w-5 h-5" />}
+                Xác nhận: {STAGE_LABELS[next]}
+              </button>
+              {/* Tuỳ chọn: sản phẩm không cần khâu kế tiếp → nhảy thẳng khâu sau nữa */}
+              {SKIPPABLE_STATUSES.has(order.status) && nextStage(next) && (
+                <button
+                  onClick={() => advance(true)}
+                  disabled={loading}
+                  className="w-full py-3 rounded-2xl bg-white border border-indigo-200 text-indigo-700 font-medium text-sm transition active:bg-indigo-50 disabled:opacity-60"
+                >
+                  {STAGE_LABELS[next]} xong — không cần {STAGE_LABELS[nextStage(next)!]} → &quot;
+                  {STATUS_DISPLAY_LABELS[nextStage(next)!]}&quot;
+                </button>
+              )}
+            </>
           )}
           {!done && !next && order.status === "da_giao" && (
             <p className="text-sm text-emerald-700 bg-emerald-50 rounded-xl px-4 py-3 text-center">

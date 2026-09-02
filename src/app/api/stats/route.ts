@@ -29,20 +29,23 @@ export async function GET(req: NextRequest) {
       ]),
       // đơn trễ: số liệu hiện tại (không phụ thuộc khoảng ngày)
       Order.countDocuments({
-        status: { $nin: ["da_giao", "cancelled"] },
+        status: { $nin: ["da_giao", "cancelled", "dong_goi"] },
         statusChangedAt: { $lt: new Date(Date.now() - 30 * 60 * 1000) },
       }),
       // đơn lỗi: có ít nhất 1 lần báo lỗi trong khoảng — cộng dồn kể cả đã sửa xong
       // (thống kê hiệu quả hoạt động, khác với filter "đang báo lỗi" ở tab Đơn hàng)
       Order.countDocuments({ history: { $elemMatch: { at: range, note: /^Báo lỗi/ } } }),
       // mỗi khâu đã quét xong bao nhiêu đơn trong khoảng (đếm đơn, không đếm lượt;
-      // bỏ qua entry báo lỗi vì đó không phải lượt quét hoàn thành khâu)
+      // loại entry báo lỗi và entry đánh dấu bỏ qua khâu — không phải lượt làm thật)
       Order.aggregate([
         { $unwind: "$history" },
         {
           $match: {
             "history.at": range,
-            $or: [{ "history.note": { $exists: false } }, { "history.note": { $not: /^Báo lỗi/ } }],
+            $or: [
+              { "history.note": { $exists: false } },
+              { "history.note": { $not: /^(Báo lỗi|Bỏ qua)/ } },
+            ],
           },
         },
         { $group: { _id: { stage: "$history.status", order: "$_id" } } },
@@ -72,7 +75,7 @@ export async function GET(req: NextRequest) {
       { $group: { _id: null, total: { $sum: { $multiply: ["$price", "$quantity"] } } } },
     ]),
     Order.countDocuments({
-      status: { $nin: ["da_giao", "cancelled"] },
+      status: { $nin: ["da_giao", "cancelled", "dong_goi"] },
       statusChangedAt: { $lt: new Date(Date.now() - 30 * 60 * 1000) },
     }),
   ]);

@@ -91,11 +91,11 @@ export default function AppShell({
               alt=""
               className="w-8 h-8 object-contain"
             />
-            <span className="font-bold text-slate-900">Ảnh Màu Tuấn Anh</span>
+            <span className="font-bold text-red-600">Ảnh Màu Tuấn Anh</span>
           </div>
           <div className="flex items-center gap-3">
             <div className="text-right leading-tight">
-              <p className="text-sm font-semibold text-slate-800 max-w-36 truncate">{user.name}</p>
+              <p className="text-sm font-semibold text-red-600 max-w-36 truncate">{user.name}</p>
               <p className="text-[11px] text-[#f1592a] font-medium">
                 {ROLE_LABELS[user.role] || user.role}
               </p>

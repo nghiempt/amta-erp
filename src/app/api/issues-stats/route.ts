@@ -32,7 +32,8 @@ export async function GET(req: NextRequest) {
   for (const o of orders) {
     const h = o.history || [];
     const isActive = o.status !== "cancelled" && o.status !== "da_giao";
-    const currentlyOverdue = isActive && now - +new Date(o.statusChangedAt) > LATE_MS;
+    const currentlyOverdue =
+      isActive && o.status !== "dong_goi" && now - +new Date(o.statusChangedAt) > LATE_MS;
 
     // — Đơn lỗi: có lần báo lỗi trong khoảng
     if (h.some((e) => e.note?.startsWith("Báo lỗi") && new Date(e.at) >= from && new Date(e.at) < to)) {
@@ -45,6 +46,7 @@ export async function GET(req: NextRequest) {
     // — Đơn trễ: có khâu nào đứng yên quá 30p, thời điểm "bắt đầu trễ" rơi vào khoảng
     let wasLate = false;
     for (let i = 0; i < h.length; i++) {
+      if (h[i].status === "dong_goi") continue; // "Chờ giao" không tính trễ
       const start = +new Date(h[i].at);
       const end = i + 1 < h.length ? +new Date(h[i + 1].at) : isActive ? now : null;
       if (end === null) continue; // đơn đã kết thúc, khâu cuối không tính chờ

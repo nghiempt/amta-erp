@@ -11,6 +11,7 @@ import {
   revertOptions,
   canActOnOrder,
   roleLabel,
+  SKIPPABLE_STATUSES,
   type OrderStatus,
   type Stage,
 } from "@/lib/stages";
@@ -31,6 +32,21 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
   const order = await findOrder(id);
   if (!order) return NextResponse.json({ error: "Không tìm thấy đơn" }, { status: 404 });
   return NextResponse.json({ order });
+}
+
+// DELETE: xoá vĩnh viễn đơn — chỉ Quản lý, ở bất cứ khâu nào
+export async function DELETE(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+  const user = await getSession();
+  if (!user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
+  await dbConnect();
+  const dbUser = await User.findById(user.id).select("role").lean<{ role?: string }>();
+  if ((dbUser?.role || user.role) !== "admin")
+    return NextResponse.json({ error: "Chỉ Quản lý được xoá đơn" }, { status: 403 });
+  const { id } = await ctx.params;
+  const order = await findOrder(id);
+  if (!order) return NextResponse.json({ error: "Không tìm thấy đơn" }, { status: 404 });
+  await order.deleteOne();
+  return NextResponse.json({ ok: true, message: "Đã xoá đơn" });
 }
 
 // PATCH: { action: "advance" | "cancel" | "update", ... }
@@ -62,6 +78,30 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
         { status: 403 }
       );
     }
+    // Tuỳ chọn bỏ qua khâu kế (sản phẩm không cần khâu đó): nhảy 2 bước,
+    // ghi entry khâu thật làm + entry đánh dấu "Bỏ qua" cho khâu được nhảy
+    if (body.skip) {
+      if (!SKIPPABLE_STATUSES.has(order.status as OrderStatus))
+        return NextResponse.json({ error: "Đơn này không có tuỳ chọn bỏ qua khâu" }, { status: 400 });
+      const target = nextStage(next)!;
+      const now = new Date();
+      order.status = target;
+      order.statusChangedAt = now;
+      order.history.push({ status: next, at: now, byName: user.name, byId: user.id, note: body.note });
+      order.history.push({
+        status: target,
+        at: now,
+        byName: user.name,
+        byId: user.id,
+        note: `Bỏ qua — sản phẩm không cần khâu ${STAGE_LABELS[target]}`,
+      });
+      await order.save();
+      return NextResponse.json({
+        order,
+        message: `Khâu ${STAGE_LABELS[next]} đã xong — bỏ qua ${STAGE_LABELS[target]}, đơn chuyển sang "${STATUS_DISPLAY_LABELS[target]}"`,
+      });
+    }
+
     order.status = next;
     order.statusChangedAt = new Date();
     order.history.push({ status: next, at: new Date(), byName: user.name, byId: user.id, note: body.note });

@@ -46,12 +46,12 @@ export const STAGE_SLA_MIN: Partial<Record<OrderStatus, number>> = {
   in: 30,
   ep: 30,
   gia_cong: 30,
-  dong_goi: 30,
+  // dong_goi (Chờ giao) không tính trễ — giao hàng phụ thuộc lịch lấy hàng bên ngoài
 };
 
 export const STAGE_COLORS: Record<OrderStatus, { bg: string; text: string; dot: string }> = {
   cho_cskh: { bg: "bg-rose-100", text: "text-rose-700", dot: "bg-rose-500" },
-  created: { bg: "bg-slate-100", text: "text-slate-700", dot: "bg-slate-400" },
+  created: { bg: "bg-indigo-100", text: "text-indigo-700", dot: "bg-indigo-500" },
   ky_thuat: { bg: "bg-violet-100", text: "text-violet-700", dot: "bg-violet-500" },
   in: { bg: "bg-blue-100", text: "text-blue-700", dot: "bg-blue-500" },
   ep: { bg: "bg-cyan-100", text: "text-cyan-700", dot: "bg-cyan-500" },
@@ -87,6 +87,11 @@ export function roleLabel(role: string): string {
   if (role === "cskh") return "CSKH";
   return STAGE_LABELS[role as Stage] || role;
 }
+
+// Các trạng thái mà lúc quét được phép "bỏ qua khâu kế tiếp" (tuỳ sản phẩm):
+// - "Chờ In" (ky_thuat): In xong có thể bỏ qua Ép → "Chờ Gia công"
+// - "Chờ Ép" (in): Ép xong có thể bỏ qua Gia công → "Chờ Đóng gói"
+export const SKIPPABLE_STATUSES = new Set<OrderStatus>(["ky_thuat", "in"]);
 
 export function nextStage(status: OrderStatus): Stage | null {
   const i = STAGES.indexOf(status as Stage);

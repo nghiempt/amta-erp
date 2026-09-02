@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { Search, Loader2, Inbox, X, ChevronDown } from "lucide-react";
+import { Search, Loader2, Inbox, X, ChevronDown, RefreshCw } from "lucide-react";
 import { OrderCard, type OrderLite } from "@/components/OrderBits";
 import { DateField, PRESETS } from "@/components/RangeStats";
 import { STATUS_DISPLAY_LABELS, type OrderStatus } from "@/lib/stages";
@@ -27,6 +27,7 @@ function OrdersList() {
   const [page, setPage] = useState(1);
   const [pages, setPages] = useState(1);
   const [loading, setLoading] = useState(true);
+  const [counts, setCounts] = useState<Record<string, number>>({});
   const [viewerRole, setViewerRole] = useState<string | undefined>(undefined);
   const debounce = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
@@ -62,6 +63,7 @@ function OrdersList() {
       setItems((prev) => (append ? [...prev, ...data.items] : data.items));
       setTotal(data.total);
       setPages(data.pages);
+      if (data.counts) setCounts(data.counts);
     }
     setLoading(false);
     },
@@ -86,7 +88,17 @@ function OrdersList() {
     <div className="p-4 md:p-8 max-w-5xl mx-auto space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-xl md:text-2xl font-bold text-slate-900">Đơn hàng</h1>
-        <span className="text-sm text-slate-500">{total} đơn</span>
+        <span className="inline-flex items-center gap-2">
+          <span className="text-sm text-slate-500">{total} đơn</span>
+          <button
+            onClick={() => load(q, status, range, sort, 1)}
+            disabled={loading}
+            aria-label="Làm mới"
+            className="p-2 rounded-lg text-slate-400 hover:text-[#f1592a] hover:bg-[#fbeee7] active:scale-95 transition disabled:opacity-60"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin text-[#f1592a]" : ""}`} />
+          </button>
+        </span>
       </div>
 
       {/* Lọc theo thời gian tạo đơn — nằm trên ô search */}
@@ -186,14 +198,33 @@ function OrdersList() {
             }`}
           >
             {f.label}
+            {Object.keys(counts).length > 0 && (
+              <span
+                className={`ml-1.5 px-1.5 py-px rounded-full text-[11px] font-bold ${
+                  status === f.value ? "bg-white/25 text-white" : "bg-[#fbeee7] text-[#f1592a]"
+                }`}
+              >
+                {counts[f.value] ?? 0}
+              </span>
+            )}
           </button>
         ))}
       </div>
 
-      {/* List */}
+      {/* List — skeleton khi load lần đầu, dim + pulse khi làm mới */}
       {loading && items.length === 0 ? (
-        <div className="flex justify-center py-16">
-          <Loader2 className="w-7 h-7 animate-spin text-[#f1592a]" />
+        <div className="space-y-2.5 md:grid md:grid-cols-2 md:gap-3 md:space-y-0">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="bg-white rounded-2xl border border-[#f6d9c3] p-4 animate-pulse space-y-3">
+              <div className="flex justify-between">
+                <div className="h-4 w-28 bg-[#fbeee7] rounded-md" />
+                <div className="h-5 w-20 bg-[#fbeee7] rounded-full" />
+              </div>
+              <div className="h-4 w-3/5 bg-[#fbeee7] rounded-md" />
+              <div className="h-3 w-2/5 bg-[#fbeee7] rounded-md" />
+              <div className="h-3 w-4/5 bg-[#fbeee7] rounded-md" />
+            </div>
+          ))}
         </div>
       ) : items.length === 0 ? (
         <div className="text-center py-16 text-slate-400">
@@ -201,7 +232,11 @@ function OrdersList() {
           <p className="text-sm">Không có đơn nào</p>
         </div>
       ) : (
-        <div className="space-y-2.5 md:grid md:grid-cols-2 md:gap-3 md:space-y-0">
+        <div
+          className={`space-y-2.5 md:grid md:grid-cols-2 md:gap-3 md:space-y-0 transition ${
+            loading ? "opacity-50 animate-pulse pointer-events-none" : ""
+          }`}
+        >
           {items.map((o) => (
             <OrderCard key={o._id} order={o} viewerRole={viewerRole} />
           ))}

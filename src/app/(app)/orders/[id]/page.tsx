@@ -17,6 +17,7 @@ import {
   STAGE_LABELS,
   STATUS_DISPLAY_LABELS,
   nextStage,
+  SKIPPABLE_STATUSES,
   revertOptions,
   canActOnOrder,
   type OrderStatus,
@@ -198,6 +199,18 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
         >
           {busy ? <Loader2 className="w-5 h-5 animate-spin" /> : <ArrowRightCircle className="w-5 h-5" />}
           Chuyển sang: {STAGE_LABELS[next]}
+        </button>
+      )}
+
+      {/* Tuỳ chọn: sản phẩm không cần khâu kế tiếp → nhảy thẳng khâu sau nữa */}
+      {next && canActOnOrder(role, order.status) && SKIPPABLE_STATUSES.has(order.status) && nextStage(next) && (
+        <button
+          onClick={() => patch({ action: "advance", skip: true })}
+          disabled={busy}
+          className="w-full py-3 rounded-2xl bg-white border border-indigo-200 text-indigo-700 font-medium text-sm transition active:bg-indigo-50 disabled:opacity-60"
+        >
+          {STAGE_LABELS[next]} xong — không cần {STAGE_LABELS[nextStage(next)!]} → &quot;
+          {STATUS_DISPLAY_LABELS[nextStage(next)!]}&quot;
         </button>
       )}
 
