@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { Loader2, ShieldAlert, Wrench, CheckCircle2, Clock, AlertTriangle, PackageCheck } from "lucide-react";
 import { DateField, PRESETS } from "@/components/RangeStats";
 
@@ -34,21 +35,24 @@ export default function IssuesPage() {
     if (range.from && range.to) load(range.from, range.to);
   }, [range, load]);
 
+  // click vào số → nhảy sang tab Đơn hàng với đúng filter đó
+  // (efrom/eto = khoảng sự kiện lỗi/trễ, không phải khoảng ngày tạo đơn)
+  const er = `&efrom=${range.from}&eto=${range.to}`;
   const groups = [
     {
       title: "Đơn lỗi",
       tiles: [
-        { label: "Đã báo lỗi", value: data?.reported, icon: ShieldAlert, color: "text-amber-600 bg-amber-50" },
-        { label: "Chưa sửa lỗi", value: data?.reportedOpen, icon: Wrench, color: "text-red-600 bg-red-50" },
-        { label: "Đã sửa lỗi", value: data?.reportedFixed, icon: CheckCircle2, color: "text-emerald-600 bg-emerald-50" },
+        { label: "Đã báo lỗi", value: data?.reported, icon: ShieldAlert, color: "text-amber-600 bg-amber-50", href: `/orders?status=reported_all${er}` },
+        { label: "Chưa sửa lỗi", value: data?.reportedOpen, icon: Wrench, color: "text-red-600 bg-red-50", href: "/orders?status=reported" },
+        { label: "Đã sửa lỗi", value: data?.reportedFixed, icon: CheckCircle2, color: "text-emerald-600 bg-emerald-50", href: `/orders?status=reported_fixed${er}` },
       ],
     },
     {
       title: "Đơn trễ (>30 phút / khâu)",
       tiles: [
-        { label: "Đã trễ", value: data?.late, icon: Clock, color: "text-amber-600 bg-amber-50" },
-        { label: "Còn trễ chưa xử lý", value: data?.lateOpen, icon: AlertTriangle, color: "text-red-600 bg-red-50" },
-        { label: "Trễ đã được xử lý", value: data?.lateFixed, icon: PackageCheck, color: "text-emerald-600 bg-emerald-50" },
+        { label: "Đã trễ", value: data?.late, icon: Clock, color: "text-amber-600 bg-amber-50", href: `/orders?status=late_all${er}` },
+        { label: "Còn trễ chưa xử lý", value: data?.lateOpen, icon: AlertTriangle, color: "text-red-600 bg-red-50", href: "/orders?status=overdue" },
+        { label: "Trễ đã được xử lý", value: data?.lateFixed, icon: PackageCheck, color: "text-emerald-600 bg-emerald-50", href: `/orders?status=late_fixed${er}` },
       ],
     },
   ];
@@ -104,13 +108,17 @@ export default function IssuesPage() {
           <h2 className="font-semibold text-slate-900 mb-3">{g.title}</h2>
           <div className="grid grid-cols-3 gap-3">
             {g.tiles.map((t) => (
-              <div key={t.label} className="rounded-xl border border-slate-100 p-3.5">
+              <Link
+                key={t.label}
+                href={t.href}
+                className="block rounded-xl border border-slate-100 p-3.5 active:scale-[0.98] hover:border-[#f1592a]/30 transition"
+              >
                 <div className={`w-9 h-9 rounded-xl flex items-center justify-center mb-2.5 ${t.color}`}>
                   <t.icon className="w-5 h-5" />
                 </div>
                 <p className="text-lg font-bold text-slate-900 leading-tight">{t.value ?? "—"}</p>
                 <p className="text-xs text-slate-500 mt-0.5">{t.label}</p>
-              </div>
+              </Link>
             ))}
           </div>
         </div>

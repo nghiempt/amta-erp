@@ -19,6 +19,9 @@ function OrdersList() {
   const router = useRouter();
   const [q, setQ] = useState(sp.get("q") || "");
   const [status, setStatus] = useState(sp.get("status") || "");
+  // khoảng sự kiện lỗi/trễ khi nhảy từ trang "Lỗi & trễ" sang (khác khoảng ngày tạo)
+  const efrom = sp.get("efrom") || "";
+  const eto = sp.get("eto") || "";
   const [range, setRange] = useState<{ from: string; to: string }>({ from: "", to: "" });
   const [activePreset, setActivePreset] = useState("Tất cả");
   const [sort, setSort] = useState<"newest" | "oldest">("oldest");
@@ -59,6 +62,10 @@ function OrdersList() {
       params.set("to", range.to);
     }
     params.set("sort", sort);
+    if (efrom && eto) {
+      params.set("efrom", efrom);
+      params.set("eto", eto);
+    }
     params.set("page", String(page));
     const res = await fetch(`/api/orders?${params}`);
     if (res.ok) {
@@ -70,7 +77,7 @@ function OrdersList() {
     }
     setLoading(false);
     },
-    []
+    [efrom, eto]
   );
 
   useEffect(() => {

@@ -1,12 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Order } from "@/models/Order";
 import { requireAdmin } from "@/lib/adminUsers";
-
-interface HistEntry {
-  status: string;
-  at: string | Date;
-  note?: string;
-}
+import { classifyIssues, type IssueOrder } from "@/lib/issueCalc";
 
 // Thống kê đơn lỗi & đơn trễ trong khoảng ngày — trang "Lỗi & trễ" của Quản lý.
 // Tính từ lịch sử đơn nên đơn đã sửa/đã đi tiếp vẫn được đếm đúng thời điểm xảy ra.
@@ -21,44 +16,19 @@ export async function GET(req: NextRequest) {
   if (isNaN(from.getTime()) || isNaN(to.getTime()) || from >= to)
     return NextResponse.json({ error: "Khoảng ngày không hợp lệ" }, { status: 400 });
 
-  const orders = await Order.find({}, "status statusChangedAt history").lean<
-    { status: string; statusChangedAt: Date; history?: HistEntry[] }[]
-  >();
+  const orders = await Order.find({}, "status statusChangedAt history").lean<IssueOrder[]>();
 
   const now = Date.now();
-  const LATE_MS = 30 * 60 * 1000;
   let reported = 0, reportedOpen = 0, late = 0, lateOpen = 0;
-
   for (const o of orders) {
-    const h = o.history || [];
-    const isActive = o.status !== "cancelled" && o.status !== "da_giao";
-    const currentlyOverdue =
-      isActive && o.status !== "dong_goi" && now - +new Date(o.statusChangedAt) > LATE_MS;
-
-    // — Đơn lỗi: có lần báo lỗi trong khoảng
-    if (h.some((e) => e.note?.startsWith("Báo lỗi") && new Date(e.at) >= from && new Date(e.at) < to)) {
+    const f = classifyIssues(o, from, to, now);
+    if (f.reported) {
       reported++;
-      // còn chưa sửa = entry cuối vẫn là báo lỗi
-      const last = h[h.length - 1];
-      if (isActive && last?.note?.startsWith("Báo lỗi")) reportedOpen++;
+      if (f.reportedOpen) reportedOpen++;
     }
-
-    // — Đơn trễ: có khâu nào đứng yên quá 30p, thời điểm "bắt đầu trễ" rơi vào khoảng
-    let wasLate = false;
-    for (let i = 0; i < h.length; i++) {
-      if (h[i].status === "dong_goi") continue; // "Chờ giao" không tính trễ
-      const start = +new Date(h[i].at);
-      const end = i + 1 < h.length ? +new Date(h[i + 1].at) : isActive ? now : null;
-      if (end === null) continue; // đơn đã kết thúc, khâu cuối không tính chờ
-      const lateAt = start + LATE_MS;
-      if (end > lateAt && lateAt >= +from && lateAt < +to) {
-        wasLate = true;
-        break;
-      }
-    }
-    if (wasLate) {
+    if (f.wasLate) {
       late++;
-      if (currentlyOverdue) lateOpen++;
+      if (f.currentlyOverdue) lateOpen++;
     }
   }
 

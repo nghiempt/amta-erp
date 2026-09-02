@@ -479,6 +479,15 @@ export function OrderCard({ order, viewerRole }: { order: OrderLite; viewerRole?
             const isRedo = hist.slice(0, idx).some(
               (p) => p.status === h.status && !p.note?.startsWith("Báo lỗi")
             );
+            // khâu này từng để đơn chờ quá 30p (tính từ lượt quét trước đó) —
+            // ghi nhận cả khi đã xử lý xong; "Chờ giao" và huỷ không tính trễ
+            const prev = hist[idx - 1];
+            const wasLate =
+              !!prev?.at &&
+              !!h.at &&
+              h.status !== "cancelled" &&
+              prev.status !== "dong_goi" &&
+              +new Date(h.at) - +new Date(prev.at) > 30 * 60 * 1000;
             return (
               <div key={idx} className="flex items-baseline gap-1.5 text-slate-500">
                 <span className={`w-1.5 h-1.5 rounded-full shrink-0 self-center ${STAGE_COLORS[h.status]?.dot || "bg-slate-300"}`} />
@@ -487,6 +496,11 @@ export function OrderCard({ order, viewerRole }: { order: OrderLite; viewerRole?
                   {isRedo && <span className="text-amber-600 font-medium"> (làm lại)</span>}{" "}
                   <span className="font-medium text-slate-600">{h.byName}</span>
                   {h.at && <span className="text-slate-400"> · {fmtShortTime(h.at)}</span>}
+                  {wasLate && (
+                    <span className="ml-1.5 px-1.5 py-px rounded-full text-[10px] font-bold bg-red-50 text-red-600 align-middle">
+                      Trễ
+                    </span>
+                  )}
                 </span>
               </div>
             );

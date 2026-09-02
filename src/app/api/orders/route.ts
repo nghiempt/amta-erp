@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { dbConnect } from "@/lib/db";
 import { Order } from "@/models/Order";
 import { getSession } from "@/lib/auth";
+import { classifyIssues, type IssueOrder } from "@/lib/issueCalc";
+
+// Các filter theo lịch sử lỗi/trễ (nhảy từ dashboard "Lỗi & trễ" sang):
+// đếm bằng cùng logic classifyIssues nên số luôn khớp dashboard
+const ISSUE_FILTERS = new Set(["reported_all", "reported_fixed", "late_all", "late_fixed"]);
 
 // GET /api/orders?q=&status=&source=&page=&limit=
 export async function GET(req: NextRequest) {
@@ -34,6 +39,35 @@ export async function GET(req: NextRequest) {
     // đơn trễ: đang trong sản xuất, đứng yên quá 30 phút (Chờ giao không tính trễ)
     filter.status = { $nin: ["cancelled", "da_giao", "dong_goi"] };
     filter.statusChangedAt = { $lt: new Date(Date.now() - 30 * 60 * 1000) };
+  } else if (status && ISSUE_FILTERS.has(status)) {
+    // khoảng sự kiện (efrom/eto) — khác with from/to là khoảng NGÀY TẠO đơn
+    let eFrom = new Date(0);
+    let eTo = new Date(8640000000000000);
+    const efStr = sp.get("efrom");
+    const etStr = sp.get("eto");
+    if (efStr && etStr) {
+      const f = new Date(`${efStr}T00:00:00`);
+      const t = new Date(`${etStr}T00:00:00`);
+      t.setDate(t.getDate() + 1);
+      if (!isNaN(f.getTime()) && !isNaN(t.getTime()) && f < t) {
+        eFrom = f;
+        eTo = t;
+      }
+    }
+    const all = await Order.find({}, "_id status statusChangedAt history").lean<
+      ({ _id: unknown } & IssueOrder)[]
+    >();
+    const now = Date.now();
+    const ids = all
+      .filter((o) => {
+        const fl = classifyIssues(o, eFrom, eTo, now);
+        if (status === "reported_all") return fl.reported;
+        if (status === "reported_fixed") return fl.reported && !fl.reportedOpen;
+        if (status === "late_all") return fl.wasLate;
+        return fl.wasLate && !fl.currentlyOverdue; // late_fixed
+      })
+      .map((o) => o._id);
+    filter._id = { $in: ids };
   } else if (status) filter.status = status;
   else if (user.role !== "admin") filter.status = { $ne: "cancelled" }; // staff không thấy đơn huỷ
   if (source) filter.source = source;
